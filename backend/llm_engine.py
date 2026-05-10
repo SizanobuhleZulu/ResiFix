@@ -7,63 +7,96 @@ from config import Config
 client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY)
 
 
-# ===== ANALYZE IMAGE WITH CLAUDE VISION =====
-def analyze_image_with_claude(image_path):
+# ===== VALIDATE IF TEXT IS A REAL MAINTENANCE ISSUE =====
+def is_valid_maintenance_issue(description):
     """
-    Use Claude Vision to analyze a photo of damage
-    and return the issue type, priority, and description
+    Check if the text actually describes a maintenance issue.
+    Returns True if real issue, False if greeting/gibberish.
     """
     try:
-        # Read image and convert to base64
+        text = description.strip().lower()
+
+        # Too short to be a real issue
+        if len(text) < 10:
+            return False
+
+        # Common greetings and non-issues
+        greetings = [
+            'hi', 'hello', 'hey', 'sup', 'yo', 'hola',
+            'good morning', 'good afternoon', 'good evening',
+            'how are you', 'whats up', "what's up",
+            'test', 'testing', 'asdf', 'qwer', 'zxcv'
+        ]
+        if text in greetings or len(text.split()) < 3:
+            return False
+
+        # Use Claude for ambiguous cases
+        prompt = f"""
+You are a strict validator for a university residence
+maintenance reporting system. Decide if the following text
+is describing a REAL maintenance issue in a residence room
+or building.
+
+TEXT: "{description}"
+
+A REAL maintenance issue describes a physical problem with:
+- Electrical things (wires, plugs, lights, switches)
+- Plumbing (taps, pipes, drains, toilets, showers)
+- Structural things (walls, doors, windows, ceilings)
+- Hygiene/safety (mould, pests, dirt, ventilation)
+- Administrative things (room access, missing items)
+
+NOT a maintenance issue:
+- Greetings (hi, hello)
+- General questions about the system
+- Random text or gibberish
+- Personal complaints unrelated to the room
+- Test inputs
+
+Respond with ONLY one word: VALID or INVALID
+"""
+
+        response = client.messages.create(
+            model="claude-opus-4-5",
+            max_tokens=10,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        result = response.content[0].text.strip().upper()
+        return "VALID" in result
+
+    except Exception as e:
+        print(f"❌ Validator error: {e}")
+        return True
+
+
+# ===== ANALYZE IMAGE WITH CLAUDE VISION =====
+def analyze_image_with_claude(image_path):
+    """Use Claude Vision to analyze a photo of damage"""
+    try:
         with open(image_path, 'rb') as image_file:
             image_data = base64.standard_b64encode(
                 image_file.read()
             ).decode('utf-8')
 
-        # Determine image type
         ext = image_path.lower().split('.')[-1]
         media_type = 'image/jpeg' if ext in ['jpg', 'jpeg'] \
             else f'image/{ext}'
 
         prompt = """
-You are an expert residence maintenance inspector at a 
-university campus. A student has uploaded a photo of a 
-maintenance issue in their residence room.
+You are an expert residence maintenance inspector.
+Analyze this photo and determine:
 
-Please analyze this photo and determine:
+1. ISSUE TYPE — Choose ONE: Electrical, Plumbing,
+   Structural, Hygiene & Safety, Administrative
 
-1. ISSUE TYPE — Choose ONE from:
-   - Electrical (exposed wires, broken plug, burnt sockets, 
-     flickering lights, electrical sparks)
-   - Plumbing (water leaks, burst pipes, blocked drains, 
-     overflowing toilets, broken taps)
-   - Structural (cracked walls, broken doors, damaged 
-     windows, sagging ceilings, broken furniture)
-   - Hygiene & Safety (mould, pest infestation, dirt, 
-     unsanitary conditions, blocked vents)
-   - Administrative (other damage that needs documentation 
-     but no immediate physical hazard)
+2. PRIORITY — Choose ONE: Critical, High, Medium, Low
 
-2. PRIORITY — Choose ONE based on severity:
-   - Critical (immediate danger to life or property — 
-     fires, exposed live wires, major flooding, gas leaks, 
-     structural collapse risk)
-   - High (significant damage that needs urgent attention 
-     within hours — major leaks, broken security features, 
-     widespread mould)
-   - Medium (notable issue that should be fixed within 
-     a day — small leaks, minor cracks, broken fixtures)
-   - Low (cosmetic or minor issues — small marks, 
-     loose handles, small dirt patches)
+3. DAMAGE DETECTED — true or false
 
-3. DAMAGE DETECTED — true if you can see clear damage 
-   or unsafe conditions in the photo, false otherwise
+4. DESCRIPTION — Short factual description (10-20 words)
 
-4. DESCRIPTION — A short factual sentence describing 
-   what you see in 10-20 words
-
-Respond ONLY in this exact format with no extra text:
-
+Respond ONLY in this format:
 ISSUE_TYPE: [type]
 PRIORITY: [priority]
 DAMAGE_DETECTED: [true or false]
@@ -85,16 +118,12 @@ DESCRIPTION: [your description]
                                 "data": image_data
                             }
                         },
-                        {
-                            "type": "text",
-                            "text": prompt
-                        }
+                        {"type": "text", "text": prompt}
                     ]
                 }
             ]
         )
 
-        # Parse the response
         text = response.content[0].text.strip()
         result = {
             'issue_type': 'Administrative',
@@ -108,10 +137,9 @@ DESCRIPTION: [your description]
             line = line.strip()
             if line.startswith('ISSUE_TYPE:'):
                 value = line.replace('ISSUE_TYPE:', '').strip()
-                # Validate it's one of our categories
                 valid_types = ['Electrical', 'Plumbing',
-                              'Structural', 'Hygiene & Safety',
-                              'Administrative']
+                               'Structural', 'Hygiene & Safety',
+                               'Administrative']
                 for vt in valid_types:
                     if vt.lower() in value.lower():
                         result['issue_type'] = vt
@@ -132,8 +160,8 @@ DESCRIPTION: [your description]
                     'DESCRIPTION:', ''
                 ).strip()
 
-        print(f"📸 Image analysis: {result['issue_type']} — "
-              f"{result['priority']} — "
+        print(f"📸 Image: {result['issue_type']} - "
+              f"{result['priority']} - "
               f"Damage: {result['damage_detected']}")
 
         return result
@@ -151,10 +179,7 @@ DESCRIPTION: [your description]
 
 # ===== GENERATE SAFETY ADVICE =====
 def generate_safety_advice(issue_type, priority, description):
-    """
-    After issue is classified, Claude gives the student
-    specific safety advice and expected response time
-    """
+    """Claude gives safety advice and expected response time"""
     try:
         response_times = {
             'Critical': '10 to 20 minutes',
@@ -165,47 +190,28 @@ def generate_safety_advice(issue_type, priority, description):
         expected_time = response_times.get(priority, '24 hours')
 
         prompt = f"""
-You are a helpful and caring residence maintenance assistant 
-at a university campus. A student has just reported a 
-maintenance issue and it has been automatically classified 
-and submitted to the maintenance team.
+You are a caring residence maintenance assistant.
+A student reported an issue.
 
-ISSUE DETAILS:
-- Issue Type: {issue_type}
-- Priority Level: {priority}
-- Student Description: {description}
-- Expected Response Time: {expected_time}
+ISSUE: {issue_type} ({priority} priority)
+DESCRIPTION: {description}
+EXPECTED TIME: {expected_time}
 
-Your job is to:
-1. Reassure the student their issue has been received
-2. Tell them the expected response time based on priority
-3. Give them clear, practical safety advice specific to 
-   their issue type while they wait for help
-4. Keep your tone warm, caring, and reassuring
+Give the student:
+1. Reassurance that help is coming
+2. The expected response time
+3. Specific safety advice for this issue type
+4. A warm, caring tone
 
-SAFETY ADVICE RULES:
-- If ELECTRICAL issue: Warn about dangers, advise not to 
-  touch wires, suggest leaving the room if dangerous,
-  unplug devices, do not use switches
-- If PLUMBING issue: Advise to get a bucket for leaks,
-  turn off water tap if possible, protect belongings 
-  from water damage, avoid slipping on wet floors
-- If STRUCTURAL issue: Advise to stay away from the 
-  damaged area, do not lean on cracked walls or ceilings,
-  move belongings away from danger zone
-- If HYGIENE & SAFETY issue: Advise to keep windows open
-  for ventilation, avoid touching mould with bare hands,
-  keep food away from pest-affected areas
-- If ADMINISTRATIVE issue: Reassure them the right person 
-  has been notified and will contact them soon
+For ELECTRICAL: warn about wires, suggest leaving room
+For PLUMBING: bucket for leaks, turn off water if safe
+For STRUCTURAL: stay away from damaged areas
+For HYGIENE: ventilation, avoid bare hands
+For ADMINISTRATIVE: confirm right person notified
 
-If priority is CRITICAL, start your response with an 
-urgent reassurance that help is on the way immediately.
+If CRITICAL, urgently reassure help is coming immediately.
 
-Keep your response concise, friendly, and practical.
-Write in 3 to 5 sentences maximum.
-Do NOT use bullet points — write in natural conversational 
-sentences as if speaking directly to the student.
+Write 3-5 sentences, conversational, no bullet points.
 """
 
         response = client.messages.create(
@@ -221,39 +227,34 @@ sentences as if speaking directly to the student.
         }
 
     except Exception as e:
-        print(f"❌ Error generating safety advice: {e}")
+        print(f"❌ Safety advice error: {e}")
         fallback = {
             'Electrical': (
-                'Please do not touch any wires or electrical '
-                'fittings. If you feel unsafe please leave the '
-                'room and wait outside until help arrives.'
+                'Please do not touch any wires. If unsafe, '
+                'leave the room and wait until help arrives.'
             ),
             'Plumbing': (
-                'Please place a bucket or towel under the leak '
-                'to minimise water damage. Turn off the tap if '
-                'you can reach it safely.'
+                'Place a bucket under the leak. Turn off '
+                'the tap if you can reach it safely.'
             ),
             'Structural': (
-                'Please stay away from the damaged area and do '
-                'not lean on cracked walls or ceilings. Move '
-                'your belongings away from the danger zone.'
+                'Stay away from the damaged area. Do not '
+                'lean on cracked walls or ceilings.'
             ),
             'Hygiene & Safety': (
-                'Please keep your windows open for ventilation '
-                'and avoid touching affected areas with bare '
-                'hands until the team arrives.'
+                'Keep windows open for ventilation. Avoid '
+                'touching affected areas with bare hands.'
             ),
             'Administrative': (
-                'Your request has been received and the right '
-                'person has been notified. They will contact '
-                'you shortly.'
+                'Your request has been received. The right '
+                'person has been notified.'
             )
         }
         return {
             'success': True,
             'advice': fallback.get(
                 issue_type,
-                'Your issue has been received. Help is on the way!'
+                'Your issue has been received. Help is coming!'
             ),
             'expected_time': response_times.get(priority, '24 hours')
         }
@@ -261,10 +262,7 @@ sentences as if speaking directly to the student.
 
 # ===== GROUP ISSUES INTO THEMES =====
 def group_issues_into_themes(issues):
-    """
-    Takes a list of issues and uses Claude
-    to group them into common themes
-    """
+    """Group issues into common themes"""
     try:
         issues_text = ""
         for i, issue in enumerate(issues, 1):
@@ -278,24 +276,15 @@ Issue {i}:
 """
 
         prompt = f"""
-You are an AI assistant helping to analyze residence 
-maintenance issues at a university campus.
-
-Here are the recent maintenance issues submitted by students:
+Analyze these maintenance issues and group into themes:
 {issues_text}
 
-Please analyze these issues and:
-1. Group them into common themes
-2. Identify which blocks are most affected
-3. Identify the most urgent patterns
-4. Count how many issues fall into each theme
-
-Respond in this exact format:
-THEME 1: [Theme Name]
-AFFECTED BLOCKS: [List of blocks]
+Format:
+THEME 1: [Name]
+AFFECTED BLOCKS: [List]
 ISSUE COUNT: [Number]
 URGENCY: [Critical/High/Medium/Low]
-SUMMARY: [2-3 sentence description of the theme]
+SUMMARY: [2-3 sentences]
 ---
 """
 
@@ -311,16 +300,13 @@ SUMMARY: [2-3 sentence description of the theme]
         }
 
     except Exception as e:
-        print(f"❌ Error grouping issues: {e}")
+        print(f"❌ Theme grouping error: {e}")
         return {'success': False, 'themes': ''}
 
 
-# ===== GENERATE IMPROVEMENT PROPOSALS =====
+# ===== GENERATE PROPOSAL =====
 def generate_proposal(theme, issues, block):
-    """
-    Takes a theme and generates a detailed
-    improvement proposal for residence management
-    """
+    """Generate improvement proposal"""
     try:
         issues_text = ""
         for issue in issues:
@@ -330,27 +316,23 @@ def generate_proposal(theme, issues, block):
             )
 
         prompt = f"""
-You are an AI co-designer helping improve student residence
-conditions at a university campus.
+Generate a residence improvement proposal:
 
 THEME: {theme}
-AFFECTED BLOCK: {block}
-STUDENT ISSUES:
+BLOCK: {block}
+ISSUES:
 {issues_text}
 
-Based on these recurring student issues please generate a
-detailed residence improvement proposal that includes:
+Include:
+1. Title
+2. Problem summary
+3. Proposed solution
+4. Resources needed (materials, budget)
+5. Expected outcome
+6. Timeline
+7. Success metrics
 
-1. A clear title for the proposal
-2. Problem summary - what is going wrong
-3. Proposed solution - practical steps to fix it
-4. Resources needed - materials, staff, budget estimate
-5. Expected outcome - how students will benefit
-6. Implementation timeline - realistic timeframe
-7. Success metrics - how we measure if it worked
-
-Make the proposal practical, affordable, and focused on
-improving student wellbeing.
+Keep practical and affordable.
 """
 
         response = client.messages.create(
@@ -365,16 +347,13 @@ improving student wellbeing.
         }
 
     except Exception as e:
-        print(f"❌ Error generating proposal: {e}")
+        print(f"❌ Proposal error: {e}")
         return {'success': False, 'proposal': ''}
 
 
-# ===== REVISE PROPOSAL BASED ON FEEDBACK =====
+# ===== REVISE PROPOSAL =====
 def revise_proposal(original_proposal, votes, comments):
-    """
-    Takes student votes and comments and
-    revises the proposal accordingly
-    """
+    """Revise proposal based on student feedback"""
     try:
         upvotes = sum(
             1 for v in votes if v['vote_type'] == 'upvote'
@@ -389,20 +368,18 @@ def revise_proposal(original_proposal, votes, comments):
                 comments_text += f"- {comment}\n"
 
         prompt = f"""
-You are an AI co-designer helping improve a residence
-improvement proposal based on student feedback.
+Revise this proposal based on student feedback:
 
-ORIGINAL PROPOSAL:
+ORIGINAL:
 {original_proposal}
 
-STUDENT FEEDBACK:
+FEEDBACK:
 - Upvotes: {upvotes}
 - Downvotes: {downvotes}
-- Student Comments:
-{comments_text if comments_text else "No comments provided"}
+- Comments:
+{comments_text if comments_text else "None"}
 
-Generate an improved version of the proposal that better
-reflects student needs and concerns.
+Generate an improved version addressing concerns.
 """
 
         response = client.messages.create(
@@ -417,16 +394,13 @@ reflects student needs and concerns.
         }
 
     except Exception as e:
-        print(f"❌ Error revising proposal: {e}")
+        print(f"❌ Revise proposal error: {e}")
         return {'success': False, 'revised_proposal': ''}
 
 
 # ===== GENERATE WEEKLY REPORT =====
 def generate_weekly_report(issues, proposals, votes):
-    """
-    Generates a weekly summary report
-    for residence management
-    """
+    """Generate weekly management report"""
     try:
         total_issues = len(issues)
         critical_issues = sum(
@@ -449,30 +423,26 @@ def generate_weekly_report(issues, proposals, votes):
             block_counts[b] = block_counts.get(b, 0) + 1
 
         prompt = f"""
-You are an AI assistant generating a weekly residence
-maintenance report for university management.
+Generate weekly residence maintenance report:
 
-WEEKLY STATISTICS:
-- Total Issues Submitted: {total_issues}
-- Critical Issues: {critical_issues}
-- Resolved Issues: {resolved_issues}
-- Improvement Proposals Generated: {total_proposals}
-- Student Votes on Proposals: {total_votes}
+STATS:
+- Total Issues: {total_issues}
+- Critical: {critical_issues}
+- Resolved: {resolved_issues}
+- Proposals: {total_proposals}
+- Votes: {total_votes}
 
-ISSUES BY TYPE:
-{type_counts}
+BY TYPE: {type_counts}
+BY BLOCK: {block_counts}
 
-ISSUES BY BLOCK:
-{block_counts}
-
-Please generate a professional weekly report that includes:
+Include:
 1. Executive summary
-2. Key highlights and urgent matters
-3. Block by block breakdown
-4. Most common issue types
-5. Proposals awaiting approval
-6. Recommended immediate actions
-7. Outlook for next week
+2. Key highlights
+3. Block breakdown
+4. Common issue types
+5. Pending proposals
+6. Recommended actions
+7. Outlook
 """
 
         response = client.messages.create(
@@ -487,5 +457,5 @@ Please generate a professional weekly report that includes:
         }
 
     except Exception as e:
-        print(f"❌ Error generating report: {e}")
+        print(f"❌ Report error: {e}")
         return {'success': False, 'report': ''}

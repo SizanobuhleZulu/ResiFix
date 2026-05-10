@@ -45,6 +45,8 @@ class Config:
     MAIL_USERNAME = os.getenv('MAIL_USERNAME', '')
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', '')
     MAIL_SENDER = os.getenv('MAIL_USERNAME', '')
+    # Resend email service (for production deployment)
+    RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
 
     # ===== RESIDENCE BLOCKS =====
     BLOCKS = [

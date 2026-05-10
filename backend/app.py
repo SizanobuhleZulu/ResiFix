@@ -2,9 +2,7 @@
 import os
 import uuid
 import threading
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import resend
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from config import Config
@@ -16,7 +14,8 @@ from llm_engine import (
     revise_proposal,
     generate_weekly_report,
     generate_safety_advice,
-    analyze_image_with_claude
+    analyze_image_with_claude,
+    is_valid_maintenance_issue
 )
 
 # ===== INITIALIZE APP =====
@@ -24,8 +23,8 @@ app = Flask(__name__)
 CORS(app)
 app.config['MAX_CONTENT_LENGTH'] = Config.MAX_CONTENT_LENGTH
 
-# Create uploads folder if it doesn't exist
 os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
+
 
 # ===== HELPER FUNCTIONS =====
 def allowed_file(filename):
@@ -33,29 +32,21 @@ def allowed_file(filename):
         filename.rsplit('.', 1)[1].lower() \
         in Config.ALLOWED_EXTENSIONS
 
+
 def row_to_dict(row):
     return dict(zip(row.keys(), row))
 
 
-# ===== EMAIL FUNCTION =====
-def send_email_notification(
-    to_email, subject, body
-):
-    """Send email notification to matron or admin"""
+# ===== EMAIL VIA RESEND =====
+def send_email_notification(to_email, subject, body):
+    """Send email notification via Resend"""
     try:
-        if not Config.MAIL_USERNAME or not Config.MAIL_PASSWORD:
-            print("⚠️ Email not configured — skipping email")
+        if not Config.RESEND_API_KEY:
+            print("⚠️ Resend API key not configured")
             return False
 
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = Config.MAIL_SENDER
-        msg['To'] = to_email
+        resend.api_key = Config.RESEND_API_KEY
 
-        # Plain text version
-        text_part = MIMEText(body, 'plain')
-
-        # HTML version
         html_body = f"""
         <html>
         <body style="font-family:Arial,sans-serif;
@@ -83,7 +74,7 @@ def send_email_notification(
                   border-left:4px solid #2e86de;">
                 <p style="margin:0;color:#64748b;
                     font-size:13px;">
-                  Please log in to ResiFix to view and 
+                  Please log in to ResiFix to view and
                   respond to this issue immediately.
                 </p>
               </div>
@@ -99,38 +90,25 @@ def send_email_notification(
         </html>
         """
 
-        html_part = MIMEText(html_body, 'html')
-        msg.attach(text_part)
-        msg.attach(html_part)
+        params = {
+            "from": "ResiFix <onboarding@resend.dev>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body,
+        }
 
-        with smtplib.SMTP(
-            Config.MAIL_SERVER, Config.MAIL_PORT
-        ) as server:
-            server.starttls()
-            server.login(
-                Config.MAIL_USERNAME,
-                Config.MAIL_PASSWORD
-            )
-            server.sendmail(
-                Config.MAIL_SENDER,
-                to_email,
-                msg.as_string()
-            )
-
-        print(f"✅ Email sent to {to_email}")
+        resend.Emails.send(params)
+        print(f"✅ Email sent to {to_email} via Resend")
         return True
 
     except Exception as e:
-        print(f"❌ Email error: {e}")
+        print(f"❌ Resend email error: {e}")
         return False
 
 
 # ===== BACKGROUND PROPOSAL GENERATION =====
 def _generate_proposal_bg(block, issue_type):
-    """
-    Runs after the submit response is already returned.
-    Generates and saves a proposal without blocking the student.
-    """
+    """Generate proposal in background"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -187,7 +165,7 @@ def _generate_proposal_bg(block, issue_type):
 
         conn.commit()
         conn.close()
-        print(f"✅ Background proposal saved for {block} — {issue_type}")
+        print(f"✅ Proposal saved for {block} — {issue_type}")
 
     except Exception as e:
         print(f"❌ Background proposal error: {e}")
@@ -340,54 +318,44 @@ def submit_issue():
                     Config.UPLOAD_FOLDER, filename
                 )
                 file.save(image_path)
-          
+
+        # ===== VALIDATE TEXT IS A REAL MAINTENANCE ISSUE =====
+        # If only text (no image), check it's actually an issue
+        if description and not image_path:
+            if not is_valid_maintenance_issue(description):
+                return jsonify({
+                    'success': False,
+                    'message': (
+                        "I'm not sure that's a maintenance issue. "
+                        "Could you please describe the actual "
+                        "problem? For example: 'There is a leaking "
+                        "tap in my bathroom' or 'The light in my "
+                        "room is broken'."
+                    )
+                }), 400
+
         # Run ML classification on text first
         ml_result = classify_issue(
             description=description if description else None,
             image_path=None
         )
 
-        # If image uploaded — use Claude Vision to analyze it
-        # This OVERRIDES the text classification because the
-        # photo gives us much more accurate information
-        if image_path:
-            vision_result = analyze_image_with_claude(image_path)
-            if vision_result['success']:
-                # Use Claude's classification from the image
-                ml_result['issue_type'] = vision_result['issue_type']
-                ml_result['damage_detected'] = \
-                    vision_result['damage_detected']
-
-                # Take the more urgent priority between text and image
-                priority_order = [
-                    'Critical', 'High', 'Medium', 'Low'
-                ]
-                img_priority = vision_result['priority']
-                txt_priority = ml_result.get('priority', 'Medium')
-
-                if priority_order.index(img_priority) < \
-                        priority_order.index(txt_priority):
-                    ml_result['priority'] = img_priority
-
-                # If no description was given use Claude's description
-                if not description and \
-                        vision_result.get('description'):
-                    description = vision_result['description']
-
-        # If image uploaded, use Claude vision to determine
-        # the correct issue type and damage — overrides text ML
+        # If image uploaded, use Claude Vision
         if image_path:
             vision = analyze_image_with_claude(image_path)
             if vision['success']:
                 ml_result['issue_type'] = vision['issue_type']
-                ml_result['damage_detected'] = vision['damage_detected']
-                # Take the more urgent priority between text and image
-                priority_order = ['Critical', 'High', 'Medium', 'Low']
+                ml_result['damage_detected'] = \
+                    vision['damage_detected']
+                priority_order = ['Critical', 'High',
+                                  'Medium', 'Low']
                 img_pri = vision['priority']
                 txt_pri = ml_result.get('priority', 'Medium')
                 if priority_order.index(img_pri) < \
                         priority_order.index(txt_pri):
                     ml_result['priority'] = img_pri
+                if not description and vision.get('description'):
+                    description = vision['description']
 
         # Save to database
         conn = get_db()
@@ -410,14 +378,14 @@ def submit_issue():
         conn.commit()
         issue_id = cursor.lastrowid
 
-        # ===== GENERATE SAFETY ADVICE =====
+        # Generate safety advice
         safety_result = generate_safety_advice(
             ml_result['issue_type'],
             ml_result['priority'],
             description
         )
 
-        # ===== NOTIFY MATRON =====
+        # Notify matron
         cursor.execute('''
             SELECT id, email, full_name FROM users
             WHERE role = "matron" AND block = ?
@@ -426,8 +394,6 @@ def submit_issue():
 
         if matron:
             matron_dict = row_to_dict(matron)
-
-            # In-app notification
             message = (
                 f"🚨 New {ml_result['priority']} priority "
                 f"{ml_result['issue_type']} issue submitted "
@@ -439,19 +405,18 @@ def submit_issue():
             ''', (matron_dict['id'], message))
             conn.commit()
 
-            # Email notification for Critical and High
             if ml_result['priority'] in \
                     Config.EMAIL_ALERT_PRIORITIES:
                 email_subject = (
-                    f"🚨 ResiFix Alert — {ml_result['priority']} "
-                    f"Priority {ml_result['issue_type']} Issue "
-                    f"in {block}"
+                    f"🚨 ResiFix Alert — "
+                    f"{ml_result['priority']} Priority "
+                    f"{ml_result['issue_type']} Issue in {block}"
                 )
                 email_body = (
                     f"Dear {matron_dict['full_name']},\n\n"
-                    f"A {ml_result['priority']} priority maintenance "
-                    f"issue has been reported in your block and "
-                    f"requires your immediate attention.\n\n"
+                    f"A {ml_result['priority']} priority "
+                    f"maintenance issue has been reported in "
+                    f"your block.\n\n"
                     f"ISSUE DETAILS:\n"
                     f"Block: {block}\n"
                     f"Room: {room_number}\n"
@@ -459,10 +424,8 @@ def submit_issue():
                     f"Priority: {ml_result['priority']}\n"
                     f"Description: {description}\n\n"
                     f"Expected Response Time: "
-                    f"{safety_result.get('expected_time', 'ASAP')}\n\n"
-                    f"Please log in to ResiFix immediately to "
-                    f"acknowledge and respond to this issue.\n\n"
-                    f"ResiFix — AI-Powered Residence Maintenance System"
+                    f"{safety_result.get('expected_time', 'ASAP')}"
+                    f"\n\nPlease log in to ResiFix immediately."
                 )
                 send_email_notification(
                     matron_dict['email'],
@@ -470,7 +433,7 @@ def submit_issue():
                     email_body
                 )
 
-        # ===== NOTIFY ALL ADMINS FOR CRITICAL =====
+        # Notify all admins for Critical
         if ml_result['priority'] == 'Critical':
             cursor.execute('''
                 SELECT id, email, full_name FROM users
@@ -480,7 +443,6 @@ def submit_issue():
                 row_to_dict(row) for row in cursor.fetchall()
             ]
             for admin in admins:
-                # In-app notification
                 cursor.execute('''
                     INSERT INTO notifications (user_id, message)
                     VALUES (?, ?)
@@ -489,24 +451,22 @@ def submit_issue():
                     f"🔴 CRITICAL issue in {block} Room "
                     f"{room_number} — {ml_result['issue_type']}"
                 ))
-                # Email notification
                 email_subject = (
                     f"🔴 CRITICAL ResiFix Alert — "
                     f"{ml_result['issue_type']} in {block}"
                 )
                 email_body = (
                     f"Dear {admin['full_name']},\n\n"
-                    f"A CRITICAL maintenance issue has been "
-                    f"reported and requires immediate attention.\n\n"
+                    f"A CRITICAL maintenance issue requires "
+                    f"immediate attention.\n\n"
                     f"ISSUE DETAILS:\n"
                     f"Block: {block}\n"
                     f"Room: {room_number}\n"
                     f"Type: {ml_result['issue_type']}\n"
                     f"Priority: CRITICAL\n"
                     f"Description: {description}\n\n"
-                    f"Please ensure the matron for {block} responds "
-                    f"within 10 to 20 minutes.\n\n"
-                    f"ResiFix — AI-Powered Residence Maintenance System"
+                    f"Please ensure the matron responds within "
+                    f"10 to 20 minutes."
                 )
                 send_email_notification(
                     admin['email'],
@@ -517,8 +477,7 @@ def submit_issue():
 
         conn.close()
 
-        # Generate proposal in the background — does not block
-        # the student from getting their response
+        # Generate proposal in background
         threading.Thread(
             target=_generate_proposal_bg,
             args=(block, ml_result['issue_type']),
@@ -785,10 +744,6 @@ def get_proposals():
         }), 500
 
 
-# ================================================
-# VOTING ROUTES
-# ================================================
-
 @app.route('/api/proposals/<int:proposal_id>/vote',
            methods=['POST'])
 def vote_on_proposal(proposal_id):
@@ -811,7 +766,7 @@ def vote_on_proposal(proposal_id):
             conn.close()
             return jsonify({
                 'success': False,
-                'message': 'You have already voted on this proposal'
+                'message': 'You have already voted'
             }), 400
 
         cursor.execute('''
@@ -991,7 +946,7 @@ def update_proposal_status(proposal_id):
 
         return jsonify({
             'success': True,
-            'message': f'Proposal {new_status.lower()} successfully'
+            'message': f'Proposal {new_status.lower()}'
         }), 200
 
     except Exception as e:
@@ -999,6 +954,7 @@ def update_proposal_status(proposal_id):
             'success': False,
             'message': str(e)
         }), 500
+
 
 # ================================================
 # RATINGS ROUTES
@@ -1059,7 +1015,7 @@ def submit_rating():
 
 @app.route('/api/ratings', methods=['GET'])
 def get_ratings():
-    """Get all ratings with summary stats — admin only"""
+    """Get all ratings with summary stats"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -1116,6 +1072,8 @@ def get_ratings():
             'success': False,
             'message': str(e)
         }), 500
+
+
 # ================================================
 # RUN APP
 # ================================================
