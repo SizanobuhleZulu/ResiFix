@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — ResiFix Student</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-brand">Resi<span>Fix</span></div>
+    <div class="topbar-user">
+      <span id="topbar-user-name"></span>
+      <div class="topbar-avatar" id="topbar-avatar"></div>
+      <span class="notif-badge" id="notif-count"
+        style="display:none;"></span>
+    </div>
+  </div>
+
+  <!-- SIDEBAR — NO PROPOSALS -->
+  <div class="sidebar">
+    <div class="sidebar-section">Student Menu</div>
+    <a href="dashboard.html" class="sidebar-item active">
+      <span class="icon">🏠</span><span>Dashboard</span>
+    </a>
+    <a href="submit.html" class="sidebar-item">
+      <span class="icon">💬</span><span>Report Issue</span>
+    </a>
+    <a href="my-issues.html" class="sidebar-item">
+      <span class="icon">📋</span><span>My Issues</span>
+    </a>
+    <a href="rate.html" class="sidebar-item">
+      <span class="icon">⭐</span><span>Rate System</span>
+    </a>
+    <hr class="sidebar-divider" />
+    <a href="#" class="sidebar-item" onclick="logout()">
+      <span class="icon">🚪</span><span>Logout</span>
+    </a>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-title" id="welcome-title">
+        My Dashboard
+      </div>
+      <div class="page-subtitle">
+        Welcome back! Here is your residence maintenance overview.
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Issues</div>
+        <div class="stat-value" id="stat-total">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open</div>
+        <div class="stat-value warning" id="stat-open">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">In Progress</div>
+        <div class="stat-value primary" id="stat-progress">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Resolved</div>
+        <div class="stat-value success" id="stat-resolved">—</div>
+      </div>
+    </div>
+
+    <!-- RECENT ISSUES -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Recent Issues</div>
+        <a href="my-issues.html" class="btn btn-outline btn-sm">
+          View All
+        </a>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div id="issues-loading" class="loading">
+          <div class="spinner"></div> Loading your issues...
+        </div>
+        <div class="table-wrap" id="issues-table"
+          style="display:none;">
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Type</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="issues-body"></tbody>
+          </table>
+        </div>
+        <div id="issues-empty" class="empty-state"
+          style="display:none;">
+          <div class="empty-icon">📭</div>
+          <p>You haven't reported any issues yet</p>
+          <a href="submit.html" class="btn btn-primary">
+            Report an Issue
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div style="display:flex;gap:14px;flex-wrap:wrap;">
+      <a href="submit.html" class="btn btn-primary"
+        style="font-size:14px;padding:14px 28px;">
+        💬 Report a New Issue
+      </a>
+      <a href="rate.html" class="btn btn-outline"
+        style="font-size:14px;padding:14px 28px;">
+        ⭐ Rate the System
+      </a>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth(['student']);
+    if (user) {
+      setTopbarUser(user);
+      loadNotifCount(user.id);
+      document.getElementById('welcome-title').textContent =
+        `Welcome, ${user.full_name.split(' ')[0]}! 👋`;
+      loadDashboard();
+    }
+
+    async function loadDashboard() {
+      const res = await getIssues('student', user.id, null);
+      document.getElementById('issues-loading').style.display =
+        'none';
+
+      if (!res.success || res.issues.length === 0) {
+        document.getElementById('issues-empty').style.display =
+          'block';
+        document.getElementById('stat-total').textContent = '0';
+        document.getElementById('stat-open').textContent = '0';
+        document.getElementById('stat-progress').textContent = '0';
+        document.getElementById('stat-resolved').textContent = '0';
+        return;
+      }
+
+      const issues = res.issues;
+      document.getElementById('stat-total').textContent =
+        issues.length;
+      document.getElementById('stat-open').textContent =
+        issues.filter(i => i.status === 'Open').length;
+      document.getElementById('stat-progress').textContent =
+        issues.filter(i => i.status === 'In Progress').length;
+      document.getElementById('stat-resolved').textContent =
+        issues.filter(i => i.status === 'Resolved').length;
+
+      const recent = issues.slice(0, 5);
+      const tbody = document.getElementById('issues-body');
+      tbody.innerHTML = recent.map(i => `
+        <tr>
+          <td style="max-width:280px;overflow:hidden;
+            text-overflow:ellipsis;white-space:nowrap;"
+            title="${i.description}">
+            ${i.description}
+          </td>
+          <td>${getTypeBadge(i.issue_type)}</td>
+          <td>${getPriorityBadge(i.priority)}</td>
+          <td>${getStatusBadge(i.status)}</td>
+          <td style="color:var(--text-secondary);font-size:12px;">
+            ${formatDate(i.created_at)}
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('issues-table').style.display =
+        'block';
+    }
+  </script>
+</body>
+</html>

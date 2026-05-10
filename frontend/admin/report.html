@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weekly Report — ResiFix Admin</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-brand">Resi<span>Fix</span></div>
+    <div class="topbar-user">
+      <span id="topbar-user-name"></span>
+      <div class="topbar-avatar" id="topbar-avatar"></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">Admin Menu</div>
+    <a href="dashboard.html" class="sidebar-item">
+      <span class="icon">🏠</span><span>Dashboard</span>
+    </a>
+    <a href="issues.html" class="sidebar-item">
+      <span class="icon">🔧</span><span>All Issues</span>
+    </a>
+    <a href="proposals.html" class="sidebar-item">
+      <span class="icon">💡</span><span>Proposals</span>
+    </a>
+    <a href="report.html" class="sidebar-item active">
+      <span class="icon">📊</span><span>Weekly Report</span>
+    </a>
+    <hr class="sidebar-divider" />
+    <a href="#" class="sidebar-item" onclick="logout()">
+      <span class="icon">🚪</span><span>Logout</span>
+    </a>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-title">Weekly Report 📊</div>
+      <div class="page-subtitle">
+        AI-generated weekly maintenance report for residence
+        management and the housing department
+      </div>
+    </div>
+
+    <div id="alert" class="alert"></div>
+
+    <!-- GENERATE SECTION -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--text-secondary);
+          margin-bottom:20px;line-height:1.7;">
+          Generate a comprehensive weekly report using Claude AI.
+          The report summarises all issues, proposals, student
+          engagement, and provides actionable recommendations
+          for residence management and the housing department.
+        </p>
+        <div style="display:flex;gap:14px;align-items:center;
+          flex-wrap:wrap;">
+          <button class="btn btn-primary"
+            style="font-size:14px;padding:14px 28px;"
+            onclick="generateReport()" id="gen-btn">
+            📊 Generate Weekly Report
+          </button>
+          <span style="font-size:12px;color:var(--text-muted);">
+            Powered by Claude AI — takes about 20 seconds
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOADING -->
+    <div id="loading" class="loading" style="display:none;">
+      <div class="spinner"></div>
+      Claude AI is generating your weekly report...
+      Please wait.
+    </div>
+
+    <!-- REPORT OUTPUT -->
+    <div id="report-card" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            Weekly Residence Maintenance Report
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);"
+            id="report-date">
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="report-output" id="report-output"></div>
+        </div>
+        <div class="card-header"
+          style="border-top:1px solid var(--border);
+          border-bottom:none;justify-content:flex-end;">
+          <button class="btn btn-outline btn-sm"
+            onclick="window.print()">
+            🖨️ Print Report
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPTY STATE -->
+    <div id="empty-state" class="empty-state">
+      <div class="empty-icon">📊</div>
+      <p>No report generated yet</p>
+      <p style="font-size:12px;color:var(--text-muted);">
+        Click the button above to generate your weekly report
+      </p>
+    </div>
+
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth(['admin']);
+    if (user) setTopbarUser(user);
+
+    async function generateReport() {
+      const btn = document.getElementById('gen-btn');
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+      document.getElementById('loading').style.display = 'flex';
+      document.getElementById('empty-state').style.display = 'none';
+      document.getElementById('report-card').style.display = 'none';
+
+      const res = await getWeeklyReport();
+
+      document.getElementById('loading').style.display = 'none';
+      btn.disabled = false;
+      btn.textContent = '📊 Generate Weekly Report';
+
+      if (res.success) {
+        document.getElementById('report-output').textContent =
+          res.report;
+        document.getElementById('report-date').textContent =
+          new Date().toLocaleDateString('en-ZA', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        document.getElementById('report-card').style.display = 'block';
+        showAlert('alert',
+          'Report generated successfully! 🎉', 'success');
+      } else {
+        document.getElementById('empty-state').style.display = 'block';
+        showAlert('alert',
+          'Failed to generate report. Please try again.', 'danger');
+      }
+    }
+  </script>
+</body>
+</html>

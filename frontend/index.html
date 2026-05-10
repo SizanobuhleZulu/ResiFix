@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResiFix — Residence Maintenance System</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="landing-hero">
+    <div class="landing-hero-bg"></div>
+    <div class="landing-hero-content">
+
+      <div class="landing-logo-icon">🏠</div>
+
+      <h1>Resi<span>Fix</span></h1>
+
+      <p>AI-powered residence maintenance co-design. Submit issues, vote on solutions, and help build a better campus together.</p>
+
+      <div class="landing-btns">
+        <a href="login.html" class="landing-btn-primary">Login</a>
+        <a href="register.html" class="landing-btn-outline">Register</a>
+      </div>
+
+      <div class="features-row">
+        <div class="feature-pill">
+          <div class="f-icon">💬</div>
+          <div class="f-name">Chat to Report</div>
+          <div class="f-desc">WhatsApp-style AI chat</div>
+        </div>
+        <div class="feature-pill">
+          <div class="f-icon">🤖</div>
+          <div class="f-name">AI Classification</div>
+          <div class="f-desc">Auto detects issue type</div>
+        </div>
+        <div class="feature-pill">
+          <div class="f-icon">📸</div>
+          <div class="f-name">Photo Detection</div>
+          <div class="f-desc">Image damage analysis</div>
+        </div>
+        <div class="feature-pill">
+          <div class="f-icon">💡</div>
+          <div class="f-name">Smart Proposals</div>
+          <div class="f-desc">Claude AI generates plans</div>
+        </div>
+        <div class="feature-pill">
+          <div class="f-icon">🗳️</div>
+          <div class="f-name">Vote & Shape</div>
+          <div class="f-desc">Your feedback matters</div>
+        </div>
+        <div class="feature-pill">
+          <div class="f-icon">🔒</div>
+          <div class="f-name">Stay Private</div>
+          <div class="f-desc">Anonymous reporting</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // Redirect if already logged in
+    const user = getUser();
+    if (user) {
+      if (user.role === 'student') window.location.href = 'student/dashboard.html';
+      else if (user.role === 'matron') window.location.href = 'matron/dashboard.html';
+      else if (user.role === 'admin') window.location.href = 'admin/dashboard.html';
+    }
+  </script>
+
+</body>
+</html>

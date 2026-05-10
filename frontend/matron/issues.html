@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Block Issues — ResiFix</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-brand">Resi<span>Fix</span></div>
+    <div class="topbar-user">
+      <span id="topbar-user-name"></span>
+      <div class="topbar-avatar" id="topbar-avatar"></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">Matron Menu</div>
+    <a href="dashboard.html" class="sidebar-item">
+      <span class="icon">🏠</span><span>Dashboard</span>
+    </a>
+    <a href="issues.html" class="sidebar-item active">
+      <span class="icon">🔧</span><span>Block Issues</span>
+    </a>
+    <a href="proposals.html" class="sidebar-item">
+      <span class="icon">💡</span><span>Proposals</span>
+    </a>
+    <hr class="sidebar-divider" />
+    <a href="#" class="sidebar-item" onclick="logout()">
+      <span class="icon">🚪</span><span>Logout</span>
+    </a>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-title" id="page-title">Block Issues</div>
+      <div class="page-subtitle">
+        All maintenance issues in your block — sorted by priority
+      </div>
+    </div>
+
+    <div id="alert" class="alert"></div>
+
+    <!-- FILTERS -->
+    <div style="display:flex;gap:12px;margin-bottom:22px;flex-wrap:wrap;">
+      <select id="filter-status" class="form-control"
+        style="width:auto;" onchange="applyFilter()">
+        <option value="">All Statuses</option>
+        <option value="Open">Open</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Resolved">Resolved</option>
+      </select>
+      <select id="filter-priority" class="form-control"
+        style="width:auto;" onchange="applyFilter()">
+        <option value="">All Priorities</option>
+        <option value="Critical">Critical</option>
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+      </select>
+      <select id="filter-type" class="form-control"
+        style="width:auto;" onchange="applyFilter()">
+        <option value="">All Types</option>
+        <option value="Electrical">Electrical</option>
+        <option value="Plumbing">Plumbing</option>
+        <option value="Structural">Structural</option>
+        <option value="Hygiene & Safety">Hygiene & Safety</option>
+        <option value="Administrative">Administrative</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          All Issues
+          <span id="issue-count"
+            style="color:var(--text-secondary);
+            font-weight:400;font-size:13px;">
+          </span>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div id="loading" class="loading">
+          <div class="spinner"></div> Loading issues...
+        </div>
+        <div class="table-wrap" id="issues-table" style="display:none;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Room</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Photo</th>
+                <th>Date</th>
+                <th>Update</th>
+              </tr>
+            </thead>
+            <tbody id="issues-body"></tbody>
+          </table>
+        </div>
+        <div id="issues-empty" class="empty-state" style="display:none;">
+          <div class="empty-icon">✅</div>
+          <p>No issues found</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth(['matron']);
+    let allIssues = [];
+
+    if (user) {
+      setTopbarUser(user);
+      document.getElementById('page-title').textContent =
+        `${user.block} — All Issues`;
+      loadIssues();
+    }
+
+    async function loadIssues() {
+      const res = await getIssues('matron', null, user.block);
+      document.getElementById('loading').style.display = 'none';
+      allIssues = res.success ? res.issues : [];
+      renderIssues(allIssues);
+    }
+
+    function applyFilter() {
+      const status = document.getElementById('filter-status').value;
+      const priority = document.getElementById('filter-priority').value;
+      const type = document.getElementById('filter-type').value;
+      let filtered = allIssues;
+      if (status) filtered = filtered.filter(i => i.status === status);
+      if (priority) filtered = filtered.filter(i => i.priority === priority);
+      if (type) filtered = filtered.filter(i => i.issue_type === type);
+      renderIssues(filtered);
+    }
+
+    function renderIssues(issues) {
+      document.getElementById('issue-count').textContent =
+        `(${issues.length})`;
+
+      if (issues.length === 0) {
+        document.getElementById('issues-table').style.display = 'none';
+        document.getElementById('issues-empty').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('issues-empty').style.display = 'none';
+      document.getElementById('issues-table').style.display = 'block';
+
+      document.getElementById('issues-body').innerHTML = issues.map(i => `
+        <tr>
+          <td style="color:var(--text-muted);font-size:12px;
+            font-weight:600;">#${i.id}</td>
+          <td style="font-weight:600;">Room ${i.room_number}</td>
+          <td style="max-width:200px;overflow:hidden;
+            text-overflow:ellipsis;white-space:nowrap;"
+            title="${i.description}">
+            ${i.description}
+          </td>
+          <td>${getTypeBadge(i.issue_type)}</td>
+          <td>${getPriorityBadge(i.priority)}</td>
+          <td>${getStatusBadge(i.status)}</td>
+          <td style="font-size:12px;">
+            ${i.image_damage_detected ?
+              '<span style="color:var(--danger);">⚠️ Damage</span>' :
+              '—'
+            }
+          </td>
+          <td style="font-size:11px;color:var(--text-secondary);">
+            ${formatDate(i.created_at)}
+          </td>
+          <td>
+            <select onchange="changeStatus(${i.id}, this.value)"
+              style="padding:6px 10px;border:1.5px solid var(--border);
+              border-radius:var(--radius-sm);font-size:12px;
+              font-family:'Poppins',sans-serif;
+              background:var(--surface);color:var(--text);
+              cursor:pointer;">
+              <option value="">Change...</option>
+              <option value="Open">Open</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Resolved">Resolved</option>
+            </select>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function changeStatus(issueId, status) {
+      if (!status) return;
+      const res = await updateIssueStatus(issueId, status);
+      if (res.success) {
+        showAlert('alert',
+          `Issue #${issueId} updated to ${status}`, 'success');
+        loadIssues();
+      } else {
+        showAlert('alert', 'Failed to update status', 'danger');
+      }
+    }
+  </script>
+</body>
+</html>

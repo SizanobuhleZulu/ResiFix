@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — ResiFix</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="auth-page">
+    <div class="auth-bg"></div>
+
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">🏠</div>
+        <h1>Resi<span>Fix</span></h1>
+        <p>Residence Maintenance System</p>
+      </div>
+
+      <h2 class="auth-title">Welcome back 👋</h2>
+
+      <div id="alert" class="alert"></div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="email" class="form-control"
+            placeholder="your@email.com" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="password" class="form-control"
+            placeholder="Enter your password" required />
+        </div>
+        <button type="submit" class="btn btn-primary"
+          style="width:100%;margin-top:8px;padding:14px;"
+          id="login-btn">
+          Login
+        </button>
+      </form>
+
+      <div class="auth-footer">
+        Don't have an account?
+        <a href="register.html">Register here</a>
+      </div>
+      <div class="auth-footer" style="margin-top:8px;">
+        <a href="index.html" style="color:var(--text-muted);">
+          ← Back to home
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // Redirect if already logged in
+    const existingUser = getUser();
+    if (existingUser) {
+      if (existingUser.role === 'student')
+        window.location.href = 'student/dashboard.html';
+      else if (existingUser.role === 'matron')
+        window.location.href = 'matron/dashboard.html';
+      else if (existingUser.role === 'admin')
+        window.location.href = 'admin/dashboard.html';
+    }
+
+    document.getElementById('login-form')
+      .addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      btn.textContent = 'Logging in...';
+      btn.disabled = true;
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      const res = await login(email, password);
+
+      if (res.success) {
+        setUser(res.user);
+        showAlert('alert', 'Login successful! Redirecting...', 'success');
+        setTimeout(() => {
+          if (res.user.role === 'student')
+            window.location.href = 'student/dashboard.html';
+          else if (res.user.role === 'matron')
+            window.location.href = 'matron/dashboard.html';
+          else if (res.user.role === 'admin')
+            window.location.href = 'admin/dashboard.html';
+        }, 800);
+      } else {
+        showAlert('alert', res.message || 'Invalid email or password',
+          'danger');
+        btn.textContent = 'Login';
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

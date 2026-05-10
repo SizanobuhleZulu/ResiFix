@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register — ResiFix</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="auth-page">
+    <div class="auth-bg"></div>
+
+    <div class="auth-card" style="max-width:480px;">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">🏠</div>
+        <h1>Resi<span>Fix</span></h1>
+        <p>Create your account</p>
+      </div>
+
+      <div id="alert" class="alert"></div>
+
+      <form id="register-form">
+
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="full_name" class="form-control"
+            placeholder="e.g. Sizanobuhle Zulu" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" id="email" class="form-control"
+              placeholder="your@email.com" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" id="password" class="form-control"
+              placeholder="Min 6 characters" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">I am a</label>
+          <select id="role" class="form-control" required
+            onchange="toggleFields()">
+            <option value="">Select your role</option>
+            <option value="student">Student</option>
+            <option value="matron">Matron</option>
+            <option value="admin">Admin (Housing Dept)</option>
+          </select>
+        </div>
+
+        <div id="residence-fields">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Residence Block</label>
+              <select id="block" class="form-control">
+                <option value="">Select block</option>
+                <option>Block A</option>
+                <option>Block B</option>
+                <option>Block C</option>
+                <option>Block D</option>
+                <option>Block E</option>
+                <option>Block F</option>
+              </select>
+            </div>
+            <div class="form-group" id="room-field">
+              <label class="form-label">Room Number</label>
+              <input type="text" id="room_number" class="form-control"
+                placeholder="e.g. 101" />
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary"
+          style="width:100%;margin-top:8px;padding:14px;"
+          id="register-btn">
+          Create Account
+        </button>
+
+      </form>
+
+      <div class="auth-footer">
+        Already have an account? <a href="login.html">Login here</a>
+      </div>
+      <div class="auth-footer" style="margin-top:8px;">
+        <a href="index.html" style="color:var(--text-muted);">
+          ← Back to home
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    function toggleFields() {
+      const role = document.getElementById('role').value;
+      const residenceFields = document.getElementById('residence-fields');
+      const roomField = document.getElementById('room-field');
+
+      if (role === 'admin') {
+        residenceFields.style.display = 'none';
+      } else {
+        residenceFields.style.display = 'block';
+        roomField.style.display = role === 'matron' ? 'none' : 'block';
+      }
+    }
+
+    document.getElementById('register-form').addEventListener('submit',
+      async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('register-btn');
+        btn.textContent = 'Creating account...';
+        btn.disabled = true;
+
+        const data = {
+          full_name: document.getElementById('full_name').value,
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value,
+          role: document.getElementById('role').value,
+          block: document.getElementById('block')?.value || '',
+          room_number: document.getElementById('room_number')?.value || ''
+        };
+
+        if (!data.role) {
+          showAlert('alert', 'Please select your role', 'danger');
+          btn.textContent = 'Create Account';
+          btn.disabled = false;
+          return;
+        }
+
+        if (data.role !== 'admin' && !data.block) {
+          showAlert('alert', 'Please select your residence block', 'danger');
+          btn.textContent = 'Create Account';
+          btn.disabled = false;
+          return;
+        }
+
+        const res = await register(data);
+
+        if (res.success) {
+          setUser(res.user);
+          showAlert('alert', 'Account created! Redirecting...', 'success');
+          setTimeout(() => {
+            if (res.user.role === 'student')
+              window.location.href = 'student/dashboard.html';
+            else if (res.user.role === 'matron')
+              window.location.href = 'matron/dashboard.html';
+            else
+              window.location.href = 'admin/dashboard.html';
+          }, 800);
+        } else {
+          showAlert('alert', res.message || 'Registration failed', 'danger');
+          btn.textContent = 'Create Account';
+          btn.disabled = false;
+        }
+      });
+  </script>
+</body>
+</html>

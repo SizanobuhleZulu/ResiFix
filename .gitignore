@@ -1,0 +1,35 @@
+# Sensitive files
+backend/.env
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded files
+uploads/
+backend/uploads/
+
+# Image dataset (too large for GitHub)
+image_model/Image_dataset/
+image model/
+image_model/dataset/
+**/dataset/Positive/
+**/dataset/Negative/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp

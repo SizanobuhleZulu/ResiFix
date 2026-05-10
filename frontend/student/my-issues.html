@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Issues — ResiFix</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-brand">Resi<span>Fix</span></div>
+    <div class="topbar-user">
+      <span id="topbar-user-name"></span>
+      <div class="topbar-avatar" id="topbar-avatar"></div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-section">Student Menu</div>
+    <a href="dashboard.html" class="sidebar-item">
+      <span class="icon">🏠</span><span>Dashboard</span>
+    </a>
+    <a href="submit.html" class="sidebar-item">
+      <span class="icon">💬</span><span>Report Issue</span>
+    </a>
+    <a href="my-issues.html" class="sidebar-item active">
+      <span class="icon">📋</span><span>My Issues</span>
+    </a>
+    <a href="rate.html" class="sidebar-item">
+      <span class="icon">⭐</span><span>Rate System</span>
+    </a>
+    <hr class="sidebar-divider" />
+    <a href="#" class="sidebar-item" onclick="logout()">
+      <span class="icon">🚪</span><span>Logout</span>
+    </a>
+  </div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-title">My Issues</div>
+      <div class="page-subtitle">
+        Track all your submitted maintenance issues and their status
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">All Submitted Issues</div>
+        <a href="submit.html" class="btn btn-primary btn-sm">
+          + Report New Issue
+        </a>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div id="loading" class="loading">
+          <div class="spinner"></div> Loading your issues...
+        </div>
+        <div class="table-wrap" id="issues-table"
+          style="display:none;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Block & Room</th>
+                <th>Anonymous</th>
+                <th>Photo</th>
+                <th>Submitted</th>
+              </tr>
+            </thead>
+            <tbody id="issues-body"></tbody>
+          </table>
+        </div>
+        <div id="issues-empty" class="empty-state"
+          style="display:none;">
+          <div class="empty-icon">📭</div>
+          <p>You haven't reported any issues yet</p>
+          <a href="submit.html" class="btn btn-primary">
+            Report Your First Issue
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth(['student']);
+    if (user) {
+      setTopbarUser(user);
+      loadIssues();
+    }
+
+    async function loadIssues() {
+      const res = await getIssues('student', user.id, null);
+      document.getElementById('loading').style.display = 'none';
+
+      if (!res.success || res.issues.length === 0) {
+        document.getElementById('issues-empty').style.display =
+          'block';
+        return;
+      }
+
+      const tbody = document.getElementById('issues-body');
+      tbody.innerHTML = res.issues.map(i => `
+        <tr>
+          <td style="color:var(--text-muted);font-size:12px;
+            font-weight:600;">#${i.id}</td>
+          <td style="max-width:260px;">
+            <div style="font-weight:500;overflow:hidden;
+              text-overflow:ellipsis;white-space:nowrap;"
+              title="${i.description}">
+              ${i.description}
+            </div>
+          </td>
+          <td>${getTypeBadge(i.issue_type)}</td>
+          <td>${getPriorityBadge(i.priority)}</td>
+          <td>${getStatusBadge(i.status)}</td>
+          <td style="font-size:12px;font-weight:500;">
+            ${i.block}, Rm ${i.room_number}
+          </td>
+          <td style="font-size:12px;color:var(--text-secondary);">
+            ${i.is_anonymous ? '🔒 Yes' : 'No'}
+          </td>
+          <td style="font-size:12px;">
+            ${i.image_damage_detected ?
+              '<span style="color:var(--danger);">⚠️ Damage</span>'
+              : '<span style="color:var(--text-muted);">—</span>'
+            }
+          </td>
+          <td style="font-size:12px;color:var(--text-secondary);">
+            ${formatDate(i.created_at)}
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('issues-table').style.display =
+        'block';
+    }
+  </script>
+</body>
+</html>

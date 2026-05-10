@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proposals — ResiFix Matron</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-brand">Resi<span>Fix</span></div>
+    <div class="topbar-user">
+      <span id="topbar-user-name"></span>
+      <div class="topbar-avatar" id="topbar-avatar"></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">Matron Menu</div>
+    <a href="dashboard.html" class="sidebar-item">
+      <span class="icon">🏠</span><span>Dashboard</span>
+    </a>
+    <a href="issues.html" class="sidebar-item">
+      <span class="icon">🔧</span><span>Block Issues</span>
+    </a>
+    <a href="proposals.html" class="sidebar-item active">
+      <span class="icon">💡</span><span>Proposals</span>
+    </a>
+    <hr class="sidebar-divider" />
+    <a href="#" class="sidebar-item" onclick="logout()">
+      <span class="icon">🚪</span><span>Logout</span>
+    </a>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-title">Block Proposals 💡</div>
+      <div class="page-subtitle">
+        AI-generated improvement proposals for your block based on
+        recurring student issues
+      </div>
+    </div>
+
+    <div id="alert" class="alert"></div>
+
+    <div id="loading" class="loading">
+      <div class="spinner"></div> Loading proposals...
+    </div>
+
+    <div id="proposals-list"></div>
+
+    <div id="proposals-empty" class="empty-state" style="display:none;">
+      <div class="empty-icon">💡</div>
+      <p>No proposals generated yet for your block</p>
+      <p style="font-size:12px;color:var(--text-muted);">
+        Go to your dashboard and click "Generate Proposal" to create
+        one from the open issues in your block.
+      </p>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth(['matron']);
+    if (user) {
+      setTopbarUser(user);
+      loadProposals();
+    }
+
+    async function loadProposals() {
+      const res = await getProposals(user.block);
+      document.getElementById('loading').style.display = 'none';
+
+      if (!res.success || res.proposals.length === 0) {
+        document.getElementById('proposals-empty').style.display = 'block';
+        return;
+      }
+
+      const container = document.getElementById('proposals-list');
+      container.innerHTML = res.proposals.map(p => `
+        <div class="proposal-card">
+          <div class="proposal-title">${p.title}</div>
+          <div class="proposal-meta">
+            ${getTypeBadge(p.issue_type)}
+            <span class="badge badge-open">${p.block}</span>
+            <span style="font-size:12px;color:var(--text-secondary);">
+              ${p.issues_count} issues grouped
+            </span>
+            <span class="badge ${
+              p.status === 'Active' ? 'badge-open' :
+              p.status === 'Approved' ? 'badge-resolved' :
+              'badge-critical'
+            }">
+              ${p.status}
+            </span>
+          </div>
+          <div class="proposal-body">${p.description}</div>
+          <div style="display:flex;gap:12px;align-items:center;
+            flex-wrap:wrap;">
+            <div style="font-size:12px;color:var(--text-secondary);">
+              Generated ${formatDate(p.created_at)}
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);">
+              ${p.issues_count} student issues contributed
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+  </script>
+</body>
+</html>

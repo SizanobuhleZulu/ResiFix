@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard — ResiFix</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-brand">Resi<span>Fix</span></div>
+    <div class="topbar-user">
+      <span id="topbar-user-name"></span>
+      <div class="topbar-avatar" id="topbar-avatar"></div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-section">Admin Menu</div>
+    <a href="dashboard.html" class="sidebar-item active">
+      <span class="icon">🏠</span><span>Dashboard</span>
+    </a>
+    <a href="issues.html" class="sidebar-item">
+      <span class="icon">🔧</span><span>All Issues</span>
+    </a>
+    <a href="proposals.html" class="sidebar-item">
+      <span class="icon">💡</span><span>Proposals</span>
+    </a>
+    <a href="report.html" class="sidebar-item">
+      <span class="icon">📊</span><span>Weekly Report</span>
+    </a>
+    <hr class="sidebar-divider" />
+    <a href="#" class="sidebar-item" onclick="logout()">
+      <span class="icon">🚪</span><span>Logout</span>
+    </a>
+  </div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-title">System Overview 🏛️</div>
+      <div class="page-subtitle">
+        Full overview of all residence maintenance activity
+        across all blocks
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Issues</div>
+        <div class="stat-value" id="stat-total">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Critical</div>
+        <div class="stat-value danger" id="stat-critical">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open</div>
+        <div class="stat-value warning" id="stat-open">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">In Progress</div>
+        <div class="stat-value primary" id="stat-progress">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Resolved</div>
+        <div class="stat-value success" id="stat-resolved">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Proposals</div>
+        <div class="stat-value" id="stat-proposals">—</div>
+      </div>
+    </div>
+
+    <!-- USABILITY RATINGS -->
+    <div class="card" style="margin-bottom:20px;
+      border-left:4px solid var(--accent);">
+      <div class="card-header">
+        <div class="card-title">
+          ⭐ Student System Usability Ratings
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="ratings-loading" class="loading">
+          <div class="spinner"></div> Loading ratings...
+        </div>
+        <div id="ratings-content" style="display:none;">
+          <div style="display:grid;grid-template-columns:
+            repeat(auto-fit, minmax(200px, 1fr));
+            gap:16px;margin-bottom:18px;">
+            <div style="background:var(--bg);
+              border-radius:10px;padding:16px;text-align:center;">
+              <div style="font-size:34px;font-weight:800;
+                color:var(--primary);" id="avg-overall">—</div>
+              <div style="font-size:11px;
+                color:var(--text-secondary);
+                font-weight:600;text-transform:uppercase;
+                margin-top:4px;">
+                Overall Rating
+              </div>
+              <div style="font-size:12px;color:var(--accent);
+                margin-top:6px;" id="overall-stars">⭐</div>
+            </div>
+            <div style="background:var(--bg);
+              border-radius:10px;padding:16px;text-align:center;">
+              <div style="font-size:24px;font-weight:700;
+                color:var(--text);" id="avg-ease">—</div>
+              <div style="font-size:11px;
+                color:var(--text-secondary);
+                font-weight:600;text-transform:uppercase;
+                margin-top:4px;">
+                Ease of Reporting
+              </div>
+            </div>
+            <div style="background:var(--bg);
+              border-radius:10px;padding:16px;text-align:center;">
+              <div style="font-size:24px;font-weight:700;
+                color:var(--text);" id="avg-ai">—</div>
+              <div style="font-size:11px;
+                color:var(--text-secondary);
+                font-weight:600;text-transform:uppercase;
+                margin-top:4px;">
+                AI Helpfulness
+              </div>
+            </div>
+            <div style="background:var(--bg);
+              border-radius:10px;padding:16px;text-align:center;">
+              <div style="font-size:24px;font-weight:700;
+                color:var(--text);" id="avg-response">—</div>
+              <div style="font-size:11px;
+                color:var(--text-secondary);
+                font-weight:600;text-transform:uppercase;
+                margin-top:4px;">
+                Response Speed
+              </div>
+            </div>
+            <div style="background:var(--bg);
+              border-radius:10px;padding:16px;text-align:center;">
+              <div style="font-size:24px;font-weight:700;
+                color:var(--text);" id="avg-safety">—</div>
+              <div style="font-size:11px;
+                color:var(--text-secondary);
+                font-weight:600;text-transform:uppercase;
+                margin-top:4px;">
+                Safety Advice
+              </div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);
+            text-align:center;">
+            Based on <span id="total-ratings">0</span>
+            student rating(s)
+          </div>
+        </div>
+        <div id="ratings-empty" style="display:none;
+          text-align:center;padding:24px;
+          color:var(--text-secondary);">
+          <div style="font-size:36px;margin-bottom:8px;">📊</div>
+          <p>No student ratings submitted yet</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLOCK BREAKDOWN -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header">
+        <div class="card-title">Issues by Block</div>
+        <a href="issues.html" class="btn btn-outline btn-sm">
+          View All Issues
+        </a>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div id="block-loading" class="loading">
+          <div class="spinner"></div> Loading...
+        </div>
+        <div class="table-wrap">
+          <table id="block-table" style="display:none;">
+            <thead>
+              <tr>
+                <th>Block</th>
+                <th>Total</th>
+                <th>Critical</th>
+                <th>Open</th>
+                <th>In Progress</th>
+                <th>Resolved</th>
+              </tr>
+            </thead>
+            <tbody id="block-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECENT URGENT ISSUES -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          Critical & High Priority Issues
+        </div>
+        <a href="issues.html" class="btn btn-outline btn-sm">
+          View All
+        </a>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div id="issues-loading" class="loading">
+          <div class="spinner"></div> Loading...
+        </div>
+        <div class="table-wrap" id="issues-table"
+          style="display:none;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Block / Room</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="issues-body"></tbody>
+          </table>
+        </div>
+        <div id="issues-empty" class="empty-state"
+          style="display:none;">
+          <div class="empty-icon">✅</div>
+          <p>No critical or high priority issues right now!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth(['admin']);
+    if (user) {
+      setTopbarUser(user);
+      loadDashboard();
+      loadRatings();
+    }
+
+    async function loadRatings() {
+      const res = await apiGet('/ratings');
+      document.getElementById('ratings-loading').style.display =
+        'none';
+
+      if (!res.success || !res.summary ||
+        res.summary.total === 0) {
+        document.getElementById('ratings-empty').style.display =
+          'block';
+        return;
+      }
+
+      const s = res.summary;
+      document.getElementById('avg-overall').textContent =
+        s.avg_overall.toFixed(1);
+      document.getElementById('avg-ease').textContent =
+        s.avg_ease.toFixed(1) + ' / 5';
+      document.getElementById('avg-ai').textContent =
+        s.avg_ai.toFixed(1) + ' / 5';
+      document.getElementById('avg-response').textContent =
+        s.avg_response.toFixed(1) + ' / 5';
+      document.getElementById('avg-safety').textContent =
+        s.avg_safety.toFixed(1) + ' / 5';
+      document.getElementById('total-ratings').textContent =
+        s.total;
+
+      const fullStars = Math.round(s.avg_overall);
+      document.getElementById('overall-stars').textContent =
+        '⭐'.repeat(fullStars) +
+        '☆'.repeat(5 - fullStars);
+
+      document.getElementById('ratings-content').style.display =
+        'block';
+    }
+
+    async function loadDashboard() {
+      const [issuesRes, proposalsRes] = await Promise.all([
+        getIssues('admin', null, null),
+        getProposals(null)
+      ]);
+
+      document.getElementById('block-loading').style.display = 'none';
+      document.getElementById('issues-loading').style.display =
+        'none';
+
+      const issues = issuesRes.success ? issuesRes.issues : [];
+      const proposals = proposalsRes.success ?
+        proposalsRes.proposals : [];
+
+      document.getElementById('stat-total').textContent =
+        issues.length;
+      document.getElementById('stat-critical').textContent =
+        issues.filter(i => i.priority === 'Critical').length;
+      document.getElementById('stat-open').textContent =
+        issues.filter(i => i.status === 'Open').length;
+      document.getElementById('stat-progress').textContent =
+        issues.filter(i => i.status === 'In Progress').length;
+      document.getElementById('stat-resolved').textContent =
+        issues.filter(i => i.status === 'Resolved').length;
+      document.getElementById('stat-proposals').textContent =
+        proposals.length;
+
+      const blocks = {};
+      issues.forEach(i => {
+        if (!blocks[i.block]) blocks[i.block] = {
+          total: 0, critical: 0, open: 0,
+          progress: 0, resolved: 0
+        };
+        blocks[i.block].total++;
+        if (i.priority === 'Critical') blocks[i.block].critical++;
+        if (i.status === 'Open') blocks[i.block].open++;
+        if (i.status === 'In Progress') blocks[i.block].progress++;
+        if (i.status === 'Resolved') blocks[i.block].resolved++;
+      });
+
+      if (Object.keys(blocks).length > 0) {
+        document.getElementById('block-body').innerHTML =
+          Object.entries(blocks).map(([block, data]) => `
+            <tr>
+              <td style="font-weight:600;">${block}</td>
+              <td style="font-weight:700;">${data.total}</td>
+              <td style="color:var(--danger);font-weight:700;">
+                ${data.critical}
+              </td>
+              <td style="color:var(--warning);">${data.open}</td>
+              <td style="color:var(--primary);">${data.progress}</td>
+              <td style="color:var(--success);">${data.resolved}</td>
+            </tr>
+          `).join('');
+        document.getElementById('block-table').style.display =
+          'table';
+      }
+
+      const urgent = issues
+        .filter(i =>
+          ['Critical', 'High'].includes(i.priority) &&
+          i.status !== 'Resolved'
+        )
+        .slice(0, 10);
+
+      if (urgent.length === 0) {
+        document.getElementById('issues-empty').style.display =
+          'block';
+        return;
+      }
+
+      document.getElementById('issues-body').innerHTML =
+        urgent.map(i => `
+          <tr>
+            <td style="color:var(--text-muted);font-size:12px;
+              font-weight:600;">#${i.id}</td>
+            <td style="font-weight:600;">
+              ${i.block}<br/>
+              <span style="font-size:11px;
+                color:var(--text-secondary);">
+                Room ${i.room_number}
+              </span>
+            </td>
+            <td style="max-width:220px;overflow:hidden;
+              text-overflow:ellipsis;white-space:nowrap;"
+              title="${i.description}">
+              ${i.description}
+            </td>
+            <td>${getTypeBadge(i.issue_type)}</td>
+            <td>${getPriorityBadge(i.priority)}</td>
+            <td>${getStatusBadge(i.status)}</td>
+            <td style="font-size:11px;
+              color:var(--text-secondary);">
+              ${formatDate(i.created_at)}
+            </td>
+          </tr>
+        `).join('');
+
+      document.getElementById('issues-table').style.display =
+        'block';
+    }
+  </script>
+</body>
+</html>

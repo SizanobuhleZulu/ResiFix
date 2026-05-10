@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Matron Dashboard — ResiFix</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-brand">Resi<span>Fix</span></div>
+    <div class="topbar-user">
+      <span id="topbar-user-name"></span>
+      <div class="topbar-avatar" id="topbar-avatar"></div>
+      <span class="notif-badge" id="notif-count"
+        style="display:none;"></span>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-section">Matron Menu</div>
+    <a href="dashboard.html" class="sidebar-item active">
+      <span class="icon">🏠</span><span>Dashboard</span>
+    </a>
+    <a href="issues.html" class="sidebar-item">
+      <span class="icon">🔧</span><span>Block Issues</span>
+    </a>
+    <a href="proposals.html" class="sidebar-item">
+      <span class="icon">💡</span><span>Proposals</span>
+    </a>
+    <hr class="sidebar-divider" />
+    <a href="#" class="sidebar-item" onclick="logout()">
+      <span class="icon">🚪</span><span>Logout</span>
+    </a>
+  </div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-title" id="page-title">
+        Block Dashboard
+      </div>
+      <div class="page-subtitle">
+        Manage and respond to maintenance issues in your
+        assigned block
+      </div>
+    </div>
+
+    <div id="alert" class="alert"></div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Issues</div>
+        <div class="stat-value" id="stat-total">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Critical</div>
+        <div class="stat-value danger" id="stat-critical">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">In Progress</div>
+        <div class="stat-value warning" id="stat-progress">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Resolved</div>
+        <div class="stat-value success" id="stat-resolved">—</div>
+      </div>
+    </div>
+
+    <!-- GENERATE PROPOSAL CARD -->
+    <div class="card" style="margin-bottom:24px;
+      border-left:4px solid var(--accent);">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;
+          gap:16px;flex-wrap:wrap;">
+          <div style="font-size:36px;">💡</div>
+          <div style="flex:1;min-width:240px;">
+            <div style="font-size:15px;font-weight:700;
+              color:var(--primary);margin-bottom:4px;">
+              Generate Improvement Proposal
+            </div>
+            <div style="font-size:13px;
+              color:var(--text-secondary);line-height:1.6;">
+              Use Claude AI to analyse all open issues in your
+              block and generate a detailed improvement
+              proposal for the housing department.
+            </div>
+          </div>
+          <button class="btn btn-primary"
+            id="gen-btn"
+            onclick="generateProposal()"
+            style="padding:12px 24px;">
+            🤖 Generate Proposal
+          </button>
+        </div>
+        <div id="gen-loading" class="loading"
+          style="display:none;padding:16px 0 0;">
+          <div class="spinner"></div>
+          Claude AI is analysing your block issues...
+          This may take up to 30 seconds.
+        </div>
+      </div>
+    </div>
+
+    <!-- PRIORITY ISSUES -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          Priority Issues — Needs Immediate Attention
+        </div>
+        <a href="issues.html" class="btn btn-outline btn-sm">
+          View All
+        </a>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div id="loading" class="loading">
+          <div class="spinner"></div> Loading issues...
+        </div>
+        <div class="table-wrap" id="issues-table"
+          style="display:none;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Room</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Update Status</th>
+              </tr>
+            </thead>
+            <tbody id="issues-body"></tbody>
+          </table>
+        </div>
+        <div id="issues-empty" class="empty-state"
+          style="display:none;">
+          <div class="empty-icon">✅</div>
+          <p>No open issues in your block. Great work!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth(['matron']);
+    if (user) {
+      setTopbarUser(user);
+      loadNotifCount(user.id);
+      document.getElementById('page-title').textContent =
+        `${user.block} Dashboard`;
+      loadDashboard();
+    }
+
+    async function generateProposal() {
+      const btn = document.getElementById('gen-btn');
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+      document.getElementById('gen-loading').style.display = 'flex';
+
+      const res = await generateProposals(user.block);
+
+      document.getElementById('gen-loading').style.display = 'none';
+      btn.disabled = false;
+      btn.textContent = '🤖 Generate Proposal';
+
+      if (res.success) {
+        showAlert('alert',
+          `Proposal generated successfully for ${user.block}! ` +
+          `Click Proposals on the sidebar to view it.`,
+          'success');
+      } else {
+        showAlert('alert',
+          res.message ||
+          'Failed to generate proposal. Make sure there are ' +
+          'open issues in your block.',
+          'danger');
+      }
+    }
+
+    async function loadDashboard() {
+      const res = await getIssues('matron', null, user.block);
+      document.getElementById('loading').style.display = 'none';
+
+      if (!res.success || res.issues.length === 0) {
+        document.getElementById('issues-empty').style.display =
+          'block';
+        ['stat-total', 'stat-critical',
+          'stat-progress', 'stat-resolved'].forEach(id => {
+            document.getElementById(id).textContent = '0';
+          });
+        return;
+      }
+
+      const issues = res.issues;
+      document.getElementById('stat-total').textContent =
+        issues.length;
+      document.getElementById('stat-critical').textContent =
+        issues.filter(i => i.priority === 'Critical').length;
+      document.getElementById('stat-progress').textContent =
+        issues.filter(i => i.status === 'In Progress').length;
+      document.getElementById('stat-resolved').textContent =
+        issues.filter(i => i.status === 'Resolved').length;
+
+      const urgent = issues
+        .filter(i => i.status !== 'Resolved')
+        .slice(0, 8);
+
+      const tbody = document.getElementById('issues-body');
+      tbody.innerHTML = urgent.map(i => `
+        <tr>
+          <td style="color:var(--text-muted);font-size:12px;
+            font-weight:600;">#${i.id}</td>
+          <td style="font-weight:600;">Room ${i.room_number}</td>
+          <td style="max-width:220px;overflow:hidden;
+            text-overflow:ellipsis;white-space:nowrap;"
+            title="${i.description}">
+            ${i.description}
+          </td>
+          <td>${getTypeBadge(i.issue_type)}</td>
+          <td>${getPriorityBadge(i.priority)}</td>
+          <td>${getStatusBadge(i.status)}</td>
+          <td>
+            <select onchange="changeStatus(${i.id}, this.value)"
+              style="padding:6px 10px;
+              border:1.5px solid var(--border);
+              border-radius:var(--radius-sm);font-size:12px;
+              font-family:'Poppins',sans-serif;
+              background:var(--surface);color:var(--text);
+              cursor:pointer;">
+              <option value="">Update...</option>
+              <option value="Open"
+                ${i.status === 'Open' ? 'selected' : ''}>
+                Open</option>
+              <option value="In Progress"
+                ${i.status === 'In Progress' ? 'selected' : ''}>
+                In Progress</option>
+              <option value="Resolved"
+                ${i.status === 'Resolved' ? 'selected' : ''}>
+                Resolved</option>
+            </select>
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('issues-table').style.display =
+        'block';
+    }
+
+    async function changeStatus(issueId, status) {
+      if (!status) return;
+      const res = await updateIssueStatus(issueId, status);
+      if (res.success) loadDashboard();
+    }
+  </script>
+</body>
+</html>

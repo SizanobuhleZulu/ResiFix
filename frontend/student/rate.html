@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rate System — ResiFix</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .rating-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      max-width: 600px;
+      margin: 0 auto;
+      box-shadow: var(--shadow-md);
+    }
+
+    .rating-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 6px;
+    }
+
+    .rating-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 28px;
+    }
+
+    .stars-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      justify-content: center;
+    }
+
+    .star {
+      font-size: 44px;
+      cursor: pointer;
+      transition: transform 0.15s;
+      filter: grayscale(1);
+      opacity: 0.4;
+    }
+
+    .star:hover,
+    .star.active {
+      filter: grayscale(0);
+      opacity: 1;
+      transform: scale(1.15);
+    }
+
+    .star-label {
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 24px;
+      min-height: 20px;
+    }
+
+    .questions-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .question-item {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+    }
+
+    .question-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+
+    .mini-stars {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mini-star {
+      font-size: 22px;
+      cursor: pointer;
+      filter: grayscale(1);
+      opacity: 0.4;
+      transition: all 0.15s;
+    }
+
+    .mini-star:hover,
+    .mini-star.active {
+      filter: grayscale(0);
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    .submitted-card {
+      text-align: center;
+      padding: 40px 20px;
+      display: none;
+    }
+
+    .submitted-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+
+    .submitted-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .submitted-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-brand">Resi<span>Fix</span></div>
+    <div class="topbar-user">
+      <span id="topbar-user-name"></span>
+      <div class="topbar-avatar" id="topbar-avatar"></div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-section">Student Menu</div>
+    <a href="dashboard.html" class="sidebar-item">
+      <span class="icon">🏠</span><span>Dashboard</span>
+    </a>
+    <a href="submit.html" class="sidebar-item">
+      <span class="icon">💬</span><span>Report Issue</span>
+    </a>
+    <a href="my-issues.html" class="sidebar-item">
+      <span class="icon">📋</span><span>My Issues</span>
+    </a>
+    <a href="rate.html" class="sidebar-item active">
+      <span class="icon">⭐</span><span>Rate System</span>
+    </a>
+    <hr class="sidebar-divider" />
+    <a href="#" class="sidebar-item" onclick="logout()">
+      <span class="icon">🚪</span><span>Logout</span>
+    </a>
+  </div>
+
+  <div class="main-content">
+    <div class="page-header">
+      <div class="page-title">Rate ResiFix ⭐</div>
+      <div class="page-subtitle">
+        Help us improve by sharing how easy the system was to use
+      </div>
+    </div>
+
+    <div class="rating-card">
+
+      <!-- RATING FORM -->
+      <div id="rating-form">
+        <div class="rating-title">
+          How would you rate ResiFix overall?
+        </div>
+        <div class="rating-subtitle">
+          Your feedback helps the housing department understand
+          how well the system is working for students.
+        </div>
+
+        <!-- OVERALL STARS -->
+        <div class="stars-container" id="overall-stars">
+          <span class="star" data-value="1"
+            onclick="setOverallRating(1)">⭐</span>
+          <span class="star" data-value="2"
+            onclick="setOverallRating(2)">⭐</span>
+          <span class="star" data-value="3"
+            onclick="setOverallRating(3)">⭐</span>
+          <span class="star" data-value="4"
+            onclick="setOverallRating(4)">⭐</span>
+          <span class="star" data-value="5"
+            onclick="setOverallRating(5)">⭐</span>
+        </div>
+        <div class="star-label" id="star-label">
+          Tap a star to rate
+        </div>
+
+        <!-- SPECIFIC QUESTIONS -->
+        <div class="questions-grid">
+
+          <div class="question-item">
+            <div class="question-text">
+              How easy was it to report your issue?
+            </div>
+            <div class="mini-stars" id="q1-stars">
+              <span class="mini-star" onclick="setQ(1,1)">⭐</span>
+              <span class="mini-star" onclick="setQ(1,2)">⭐</span>
+              <span class="mini-star" onclick="setQ(1,3)">⭐</span>
+              <span class="mini-star" onclick="setQ(1,4)">⭐</span>
+              <span class="mini-star" onclick="setQ(1,5)">⭐</span>
+            </div>
+          </div>
+
+          <div class="question-item">
+            <div class="question-text">
+              How helpful was the AI assistant in the chat?
+            </div>
+            <div class="mini-stars" id="q2-stars">
+              <span class="mini-star" onclick="setQ(2,1)">⭐</span>
+              <span class="mini-star" onclick="setQ(2,2)">⭐</span>
+              <span class="mini-star" onclick="setQ(2,3)">⭐</span>
+              <span class="mini-star" onclick="setQ(2,4)">⭐</span>
+              <span class="mini-star" onclick="setQ(2,5)">⭐</span>
+            </div>
+          </div>
+
+          <div class="question-item">
+            <div class="question-text">
+              How satisfied are you with how fast your issue
+              was responded to?
+            </div>
+            <div class="mini-stars" id="q3-stars">
+              <span class="mini-star" onclick="setQ(3,1)">⭐</span>
+              <span class="mini-star" onclick="setQ(3,2)">⭐</span>
+              <span class="mini-star" onclick="setQ(3,3)">⭐</span>
+              <span class="mini-star" onclick="setQ(3,4)">⭐</span>
+              <span class="mini-star" onclick="setQ(3,5)">⭐</span>
+            </div>
+          </div>
+
+          <div class="question-item">
+            <div class="question-text">
+              How clear and useful was the safety advice given?
+            </div>
+            <div class="mini-stars" id="q4-stars">
+              <span class="mini-star" onclick="setQ(4,1)">⭐</span>
+              <span class="mini-star" onclick="setQ(4,2)">⭐</span>
+              <span class="mini-star" onclick="setQ(4,3)">⭐</span>
+              <span class="mini-star" onclick="setQ(4,4)">⭐</span>
+              <span class="mini-star" onclick="setQ(4,5)">⭐</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- COMMENT -->
+        <div class="form-group">
+          <label class="form-label">
+            Any additional comments? (optional)
+          </label>
+          <textarea id="comment" class="form-control"
+            placeholder="Tell us what you liked or what we can improve..."
+            rows="3"></textarea>
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <button class="btn btn-primary"
+          style="width:100%;padding:14px;font-size:14px;"
+          onclick="submitRating()">
+          ⭐ Submit My Rating
+        </button>
+      </div>
+
+      <!-- SUCCESS STATE -->
+      <div class="submitted-card" id="submitted-card">
+        <div class="submitted-icon">🎉</div>
+        <div class="submitted-title">Thank you for your feedback!</div>
+        <div class="submitted-sub">
+          Your rating has been submitted to the housing department.
+          Your feedback helps make ResiFix better for all students.
+        </div>
+        <a href="dashboard.html" class="btn btn-primary"
+          style="padding:12px 28px;">
+          Back to Dashboard
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth(['student']);
+    if (user) setTopbarUser(user);
+
+    let overallRating = 0;
+    let questionRatings = { 1: 0, 2: 0, 3: 0, 4: 0 };
+
+    const starLabels = {
+      1: '😞 Very Poor',
+      2: '😐 Poor',
+      3: '🙂 Average',
+      4: '😊 Good',
+      5: '🤩 Excellent!'
+    };
+
+    function setOverallRating(value) {
+      overallRating = value;
+      const stars = document.querySelectorAll('#overall-stars .star');
+      stars.forEach((s, i) => {
+        s.classList.toggle('active', i < value);
+      });
+      document.getElementById('star-label').textContent =
+        starLabels[value];
+    }
+
+    function setQ(question, value) {
+      questionRatings[question] = value;
+      const stars = document.querySelectorAll(
+        `#q${question}-stars .mini-star`
+      );
+      stars.forEach((s, i) => {
+        s.classList.toggle('active', i < value);
+      });
+    }
+
+    async function submitRating() {
+      if (overallRating === 0) {
+        showAlert('alert',
+          'Please select an overall rating first', 'danger');
+        return;
+      }
+
+      const comment = document.getElementById('comment').value;
+
+      const data = {
+        student_id: user.id,
+        overall_rating: overallRating,
+        ease_of_reporting: questionRatings[1],
+        ai_helpfulness: questionRatings[2],
+        response_satisfaction: questionRatings[3],
+        safety_advice_clarity: questionRatings[4],
+        comment: comment
+      };
+
+      const res = await apiPost('/ratings', data);
+
+      if (res.success) {
+        document.getElementById('rating-form').style.display =
+          'none';
+        document.getElementById('submitted-card').style.display =
+          'block';
+      } else {
+        showAlert('alert',
+          res.message || 'Failed to submit rating', 'danger');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Report Issue — ResiFix</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .chat-attach-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .chat-attach-btn:hover {
+      background: #f0f0f0;
+    }
+
+    .chat-img-preview {
+      max-width: 250px;
+      max-height: 250px;
+      border-radius: 12px;
+      display: block;
+      margin-top: 4px;
+      cursor: pointer;
+    }
+
+    .camera-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 20px;
+    }
+
+    .camera-modal.show {
+      display: flex;
+    }
+
+    .camera-video {
+      max-width: 90%;
+      max-height: 60vh;
+      border-radius: 12px;
+      background: #000;
+    }
+
+    .camera-buttons {
+      display: flex;
+      gap: 14px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .camera-btn {
+      padding: 12px 24px;
+      border-radius: 99px;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .camera-btn-capture {
+      background: #fff;
+      color: #1a3a6b;
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      font-size: 32px;
+      padding: 0;
+    }
+
+    .camera-btn-cancel {
+      background: #c0392b;
+      color: #fff;
+    }
+
+    .camera-btn-use {
+      background: #27ae60;
+      color: #fff;
+    }
+
+    #captured-canvas {
+      display: none;
+      max-width: 90%;
+      max-height: 60vh;
+      border-radius: 12px;
+    }
+
+    .clear-chat-btn {
+      position: absolute;
+      top: 70px;
+      right: 20px;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-size: 11px;
+      cursor: pointer;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-brand">Resi<span>Fix</span></div>
+    <div class="topbar-user">
+      <span id="topbar-user-name"></span>
+      <div class="topbar-avatar" id="topbar-avatar"></div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-section">Student Menu</div>
+    <a href="dashboard.html" class="sidebar-item">
+      <span class="icon">🏠</span><span>Dashboard</span>
+    </a>
+    <a href="submit.html" class="sidebar-item active">
+      <span class="icon">💬</span><span>Report Issue</span>
+    </a>
+    <a href="my-issues.html" class="sidebar-item">
+      <span class="icon">📋</span><span>My Issues</span>
+    </a>
+    <a href="rate.html" class="sidebar-item">
+      <span class="icon">⭐</span><span>Rate System</span>
+    </a>
+    <hr class="sidebar-divider" />
+    <a href="javascript:void(0)" class="sidebar-item"
+      onclick="doLogout()">
+      <span class="icon">🚪</span><span>Logout</span>
+    </a>
+  </div>
+
+  <div class="chat-page">
+    <div class="chat-header">
+      <div class="chat-avatar">AI</div>
+      <div class="chat-header-info">
+        <div class="chat-name">ResiFix Assistant</div>
+        <div class="chat-status">online — powered by Claude AI 🤖</div>
+      </div>
+      <button class="clear-chat-btn" onclick="startFreshChat()">
+        🔄 New Chat
+      </button>
+    </div>
+
+    <div class="chat-messages" id="chat-messages"></div>
+
+    <div class="chat-input-area">
+      <button type="button" class="chat-attach-btn"
+        title="Take a photo with camera"
+        onclick="openCamera()">📷</button>
+      <button type="button" class="chat-attach-btn"
+        title="Upload a photo from device"
+        onclick="document.getElementById('file-upload').click()">
+        📎
+      </button>
+      <input type="file" id="file-upload" accept="image/*"
+        style="display:none;"
+        onchange="handleFileUpload(this)" />
+      <input type="text" class="chat-input" id="chat-input"
+        placeholder="Describe your issue or send a photo..." />
+      <button type="button" class="chat-send-btn"
+        onclick="sendMessage(); return false;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="#fff" stroke-width="2.5" stroke-linecap="round"
+          stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- CAMERA MODAL -->
+  <div class="camera-modal" id="camera-modal">
+    <video id="camera-video" class="camera-video" autoplay
+      playsinline></video>
+    <canvas id="captured-canvas"></canvas>
+    <div class="camera-buttons" id="camera-controls">
+      <button class="camera-btn camera-btn-cancel"
+        onclick="closeCamera()">Cancel</button>
+      <button class="camera-btn camera-btn-capture"
+        onclick="capturePhoto()" title="Take photo">📷</button>
+    </div>
+    <div class="camera-buttons" id="captured-controls"
+      style="display:none;">
+      <button class="camera-btn camera-btn-cancel"
+        onclick="retakePhoto()">Retake</button>
+      <button class="camera-btn camera-btn-use"
+        onclick="usePhoto()">✓ Use Photo</button>
+    </div>
+  </div>
+
+  <script>
+    var user = JSON.parse(localStorage.getItem('resifix_user'));
+    if (!user || user.role !== 'student') {
+      window.location.href = '../login.html';
+    }
+
+    document.getElementById('topbar-user-name').textContent =
+      user.full_name + ' — ' + user.block;
+    document.getElementById('topbar-avatar').textContent =
+      user.full_name.charAt(0).toUpperCase();
+
+    var CHAT_KEY = 'resifix_chat_' + user.id;
+    var CHAT_TIME_KEY = 'resifix_chat_time_' + user.id;
+    var STATE_KEY = 'resifix_chat_state_' + user.id;
+    var EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+
+    var chatState = 'description';
+    var description = '';
+    var isAnonymous = '0';
+    var uploadedImage = null;
+    var uploadedImageDataUrl = null;
+    var cameraStream = null;
+
+    function doLogout() {
+      localStorage.removeItem('resifix_user');
+      window.location.href = '../login.html';
+    }
+
+    function nowTime() {
+      return new Date().toLocaleTimeString('en-ZA',
+        { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function saveChat() {
+      try {
+        var msgs = document.getElementById('chat-messages');
+        localStorage.setItem(CHAT_KEY, msgs.innerHTML);
+        localStorage.setItem(CHAT_TIME_KEY,
+          Date.now().toString());
+        localStorage.setItem(STATE_KEY, chatState);
+      } catch (e) {
+        console.log('Save failed:', e);
+      }
+    }
+
+    function loadChat() {
+      try {
+        var saved = localStorage.getItem(CHAT_KEY);
+        var savedTime = localStorage.getItem(CHAT_TIME_KEY);
+        var savedState = localStorage.getItem(STATE_KEY);
+
+        if (!saved || !savedTime) return false;
+
+        var elapsed = Date.now() - parseInt(savedTime);
+        if (elapsed > EXPIRY_MS) {
+          // Expired — clear it
+          localStorage.removeItem(CHAT_KEY);
+          localStorage.removeItem(CHAT_TIME_KEY);
+          localStorage.removeItem(STATE_KEY);
+          return false;
+        }
+
+        document.getElementById('chat-messages').innerHTML = saved;
+        chatState = savedState || 'description';
+
+        // Show how long until chat expires
+        var minutesLeft = Math.ceil(
+          (EXPIRY_MS - elapsed) / 60000
+        );
+        var msgs = document.getElementById('chat-messages');
+        var notice = document.createElement('div');
+        notice.className = 'msg-wrap system';
+        notice.innerHTML =
+          '<div class="msg system">' +
+          '⏱️ Chat history — clears in ' + minutesLeft +
+          ' minute(s)</div>';
+        msgs.appendChild(notice);
+        msgs.scrollTop = msgs.scrollHeight;
+
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function startFreshChat() {
+      localStorage.removeItem(CHAT_KEY);
+      localStorage.removeItem(CHAT_TIME_KEY);
+      localStorage.removeItem(STATE_KEY);
+      window.location.reload();
+    }
+
+    function botMessage(text, extra) {
+      extra = extra || '';
+      var msgs = document.getElementById('chat-messages');
+      var wrap = document.createElement('div');
+      wrap.className = 'msg-wrap bot';
+      wrap.innerHTML =
+        '<div class="msg bot">' + text + extra +
+        '<div class="msg-time">' + nowTime() + '</div></div>';
+      msgs.appendChild(wrap);
+      msgs.scrollTop = msgs.scrollHeight;
+      saveChat();
+    }
+
+    function userMessage(text, imageUrl) {
+      var msgs = document.getElementById('chat-messages');
+      var wrap = document.createElement('div');
+      wrap.className = 'msg-wrap user';
+      var imgHtml = imageUrl ?
+        '<img src="' + imageUrl + '" class="chat-img-preview" />'
+        : '';
+      wrap.innerHTML =
+        '<div class="msg user">' + imgHtml + text +
+        '<div class="msg-time">' + nowTime() + '</div></div>';
+      msgs.appendChild(wrap);
+      msgs.scrollTop = msgs.scrollHeight;
+      saveChat();
+    }
+
+    // Try to load existing chat first, otherwise start fresh
+    if (!loadChat()) {
+      setTimeout(function() {
+        botMessage(
+          'Hi ' + user.full_name.split(' ')[0] + '! 👋 I am ' +
+          'your ResiFix assistant. Describe your maintenance ' +
+          'issue or send a photo using the 📷 camera or 📎 ' +
+          'upload buttons below. I can analyse the photo myself ' +
+          'so you do not need to describe it.'
+        );
+      }, 500);
+    }
+
+    document.addEventListener('submit', function(e) {
+      e.preventDefault();
+      return false;
+    });
+
+    var inputEl = document.getElementById('chat-input');
+    inputEl.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        sendMessage();
+        return false;
+      }
+    });
+
+    // ===== CAMERA FUNCTIONS =====
+    function openCamera() {
+      var modal = document.getElementById('camera-modal');
+      var video = document.getElementById('camera-video');
+      var canvas = document.getElementById('captured-canvas');
+
+      modal.classList.add('show');
+      video.style.display = 'block';
+      canvas.style.display = 'none';
+      document.getElementById('camera-controls').style.display =
+        'flex';
+      document.getElementById('captured-controls').style.display =
+        'none';
+
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      })
+      .then(function(stream) {
+        cameraStream = stream;
+        video.srcObject = stream;
+      })
+      .catch(function(err) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(function(stream) {
+            cameraStream = stream;
+            video.srcObject = stream;
+          })
+          .catch(function(e) {
+            alert('Cannot access camera: ' + e.message);
+            closeCamera();
+          });
+      });
+    }
+
+    function closeCamera() {
+      var modal = document.getElementById('camera-modal');
+      modal.classList.remove('show');
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(
+          function(track) { track.stop(); }
+        );
+        cameraStream = null;
+      }
+    }
+
+    function capturePhoto() {
+      var video = document.getElementById('camera-video');
+      var canvas = document.getElementById('captured-canvas');
+      var ctx = canvas.getContext('2d');
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+
+      video.style.display = 'none';
+      canvas.style.display = 'block';
+      document.getElementById('camera-controls').style.display =
+        'none';
+      document.getElementById('captured-controls').style.display =
+        'flex';
+    }
+
+    function retakePhoto() {
+      var video = document.getElementById('camera-video');
+      var canvas = document.getElementById('captured-canvas');
+      video.style.display = 'block';
+      canvas.style.display = 'none';
+      document.getElementById('camera-controls').style.display =
+        'flex';
+      document.getElementById('captured-controls').style.display =
+        'none';
+    }
+
+    function usePhoto() {
+      var canvas = document.getElementById('captured-canvas');
+      canvas.toBlob(function(blob) {
+        uploadedImage = new File(
+          [blob],
+          'camera-photo-' + Date.now() + '.jpg',
+          { type: 'image/jpeg' }
+        );
+        uploadedImageDataUrl = canvas.toDataURL('image/jpeg');
+        userMessage('📷 Photo from camera', uploadedImageDataUrl);
+        closeCamera();
+
+        setTimeout(function() {
+          botMessage(
+            'Got your photo! 📸 Analysing it now... ' +
+            'Would you like to submit this <b>anonymously</b>? ' +
+            'Reply <b>yes</b> or <b>no</b>.'
+          );
+          chatState = 'anonymous';
+          description = 'Photo submitted by student';
+          saveChat();
+        }, 600);
+      }, 'image/jpeg', 0.85);
+    }
+
+    // ===== FILE UPLOAD =====
+    function handleFileUpload(input) {
+      if (input.files && input.files[0]) {
+        uploadedImage = input.files[0];
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          uploadedImageDataUrl = e.target.result;
+          userMessage('📷 Photo uploaded', uploadedImageDataUrl);
+          setTimeout(function() {
+            botMessage(
+              'Got your photo! 📸 Analysing it now... ' +
+              'Would you like to submit this <b>anonymously</b>? ' +
+              'Reply <b>yes</b> or <b>no</b>.'
+            );
+            chatState = 'anonymous';
+            description = 'Photo submitted by student';
+            saveChat();
+          }, 600);
+        };
+        reader.readAsDataURL(uploadedImage);
+        input.value = '';
+      }
+    }
+
+    function sendMessage() {
+      var input = document.getElementById('chat-input');
+      var text = input.value.trim();
+      if (!text && !uploadedImage) return false;
+      input.value = '';
+
+      if (text) {
+        userMessage(text);
+      }
+
+      setTimeout(function() {
+        handleChat(text || 'Photo of issue uploaded');
+      }, 600);
+      return false;
+    }
+
+    function handleChat(text) {
+      if (chatState === 'description') {
+        description = text;
+        chatState = 'anonymous';
+        saveChat();
+        botMessage(
+          'Got it! Would you like to submit this ' +
+          '<b>anonymously</b>? Reply <b>yes</b> or <b>no</b>.'
+        );
+      } else if (chatState === 'anonymous') {
+        isAnonymous =
+          text.toLowerCase().indexOf('yes') !== -1
+            ? '1' : '0';
+        chatState = 'submitting';
+        saveChat();
+        botMessage('Submitting your issue... ⏳');
+        submitIt();
+      } else if (chatState === 'done') {
+        botMessage(
+          'Your issue has already been submitted! ✅ ' +
+          'Click "🔄 New Chat" at the top to report ' +
+          'another issue.'
+        );
+      }
+    }
+
+    function submitIt() {
+      var fd = new FormData();
+      fd.append('student_id', user.id);
+      fd.append('description', description);
+      fd.append('block', user.block);
+      fd.append('room_number', user.room_number);
+      fd.append('is_anonymous', isAnonymous);
+      if (uploadedImage) fd.append('image', uploadedImage);
+
+      fetch('http://127.0.0.1:5000/api/issues/submit', {
+        method: 'POST',
+        body: fd
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        chatState = 'done';
+        if (res.success) {
+          showResult(res);
+        } else {
+          botMessage('❌ Error: ' +
+            (res.message || 'Submission failed'));
+        }
+        saveChat();
+      })
+      .catch(function(err) {
+        botMessage('❌ Network error. Please try again.');
+        console.error(err);
+      });
+    }
+
+    function showResult(res) {
+      var priority = res.issue.priority;
+      var type = res.issue.issue_type;
+      var advice = res.safety_advice || '';
+      var expected = res.expected_time || '';
+      var damage = res.issue.damage_detected;
+
+      var color = '#1a3a6b';
+      var bg = '#e8f0fb';
+      var icon = 'ℹ️';
+      if (priority === 'Critical') {
+        color = '#c0392b'; bg = '#fde8e8'; icon = '🚨';
+      } else if (priority === 'High') {
+        color = '#e67e22'; bg = '#fef0e0'; icon = '⚠️';
+      }
+
+      var damageRow = damage
+        ? '<div style="display:flex;justify-content:' +
+          'space-between;font-size:12px;margin-bottom:6px;">' +
+          '<span style="color:#666;">Photo Analysis</span>' +
+          '<b style="color:#c0392b;">⚠️ Damage Detected</b>' +
+          '</div>'
+        : '';
+
+      var html =
+        '<div style="background:#f0f7ff;padding:12px;' +
+        'border-radius:8px;margin-top:8px;' +
+        'border-left:3px solid #1a3a6b;">' +
+          '<div style="display:flex;justify-content:space-between;' +
+          'margin-bottom:6px;font-size:12px;">' +
+            '<span style="color:#666;">Type</span>' +
+            '<b>' + type + '</b></div>' +
+          '<div style="display:flex;justify-content:space-between;' +
+          'margin-bottom:6px;font-size:12px;">' +
+            '<span style="color:#666;">Priority</span>' +
+            '<b style="color:' + color + ';">' + priority +
+            '</b></div>' +
+          damageRow +
+          '<div style="display:flex;justify-content:space-between;' +
+          'font-size:12px;">' +
+            '<span style="color:#666;">Status</span>' +
+            '<b style="color:#27ae60;">Submitted ✓</b></div>' +
+        '</div>' +
+        '<div style="background:' + bg + ';' +
+        'border-left:4px solid ' + color + ';padding:14px;' +
+        'border-radius:8px;margin-top:12px;font-size:13px;' +
+        'line-height:1.8;">' +
+          '<b>' + icon + ' Safety Advice:</b><br/>' +
+          advice +
+        '</div>' +
+        '<div style="background:#e8f8f0;padding:10px;' +
+        'border-radius:8px;margin-top:8px;font-size:13px;' +
+        'color:#27ae60;font-weight:600;">' +
+          '⏱️ Expected help in: <b>' + expected + '</b>' +
+        '</div>' +
+        '<div style="margin-top:8px;font-size:13px;color:#666;">' +
+          'Matron has been notified' +
+          (priority === 'Critical' || priority === 'High' ?
+            ' and email alert sent' : '') + '.' +
+        '</div>';
+
+      botMessage('Your issue has been submitted! 🎉', html);
+    }
+  </script>
+</body>
+</html>
