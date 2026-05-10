@@ -529,7 +529,7 @@
       fd.append('is_anonymous', isAnonymous);
       if (uploadedImage) fd.append('image', uploadedImage);
 
-      fetch('http://127.0.0.1:5000/api/issues/submit', {
+      fetch('https://resifix-vl9t.onrender.com/api/issues/submit', {
         method: 'POST',
         body: fd
       })

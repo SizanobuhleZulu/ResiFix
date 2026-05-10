@@ -1,5 +1,5 @@
 // ===== RESIFIX API HANDLER =====
-const API_BASE = 'http://127.0.0.1:5000/api';
+const API_BASE = 'https://resifix-vl9t.onrender.com/api';
 
 // ===== SESSION HELPERS =====
 function getUser() {
